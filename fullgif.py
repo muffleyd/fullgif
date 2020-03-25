@@ -192,7 +192,7 @@ class Gif(object):
         #  animation and overwriting/transparency
         self.current_image.make_pygame_surface()
         import pygamegen as pg
-        pg.view_pic(self.current_image.surface)
+        pg.view_pic(self.current_image.surface, scale=2)
         pg.wait_for_input2()
         r = 1
 
@@ -416,27 +416,28 @@ class Gif_LZW(object):
         self.minimum_size = minimum_size
         self.clear_code = 1 << self.minimum_size
         self.end_of_information_code = self.clear_code + 1
+        self.code_table = []
 
         self.reset_code_table()
-        self.bit_ands = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191]
+        self.bit_ands = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095]
         self.value_buffer = 0
-        self.bits = 0
+        self.value_buffer_bits = 0
         self.tell = 0
         self.stream = []
 
-        self.l = lzw.BitUnpacker(len(self.code_table)).unpack(chr(i) for i in data)
+        # self.l = lzw.BitUnpacker(len(self.code_table)).unpack(chr(i) for i in data)
 
         self.data = data
 
     def get_next_code(self):
         while self.tell < len(self.data):
-            while self.bits < self.code_size:
-                self.value_buffer += (self.data[self.tell] << self.bits)
+            while self.value_buffer_bits < self.code_size:
+                self.value_buffer += (self.data[self.tell] << self.value_buffer_bits)
                 self.tell += 1
-                self.bits += 8
+                self.value_buffer_bits += 8
             value = self.value_buffer & self.bit_ands[self.code_size]
             self.value_buffer >>= self.code_size
-            self.bits -= self.code_size
+            self.value_buffer_bits -= self.code_size
             return value
 
     def parse_stream_data(self):
@@ -445,15 +446,16 @@ class Gif_LZW(object):
         self.add_to_stream(prev_code)
         while self.tell < len(self.data):
             code = self.get_next_code()
-            if code < len(self.code_table):
+            if code < self.next_code_index:
                 if code == self.clear_code:
-                    # clear code
                     self.reset_code_table()
+                    prev_code = None
                     continue
                 if code == self.end_of_information_code:
                     return
                 self.add_to_stream(code)
-                self.add_to_table(prev_code, code)
+                if prev_code is not None:
+                    self.add_to_table(prev_code, code)
             else:
                 self.add_to_table(prev_code, prev_code)
                 self.add_to_stream(code)
@@ -465,19 +467,25 @@ class Gif_LZW(object):
     def add_to_table(self, code, K_code):
         if self.table_immutable:
             return
-        self.code_table.append(self.code_table[code] + [self.code_table[K_code][0]])
-        if len(self.code_table) > self.next_code_table_grow:
-            self.code_size += 1
-            if self.code_size > 12:
+        self.code_table[self.next_code_index] = self.code_table[code] + [self.code_table[K_code][0]]
+        self.next_code_index += 1
+        if self.next_code_index == self.next_code_table_grow:
+            if self.code_size == 12:
                 # Gifs aren't allowed to grow beyond 12 bits per code
                 self.table_immutable = True
                 return
-            self.next_code_table_grow = (1 << self.code_size) - 1
+            self.code_size += 1
+            self.next_code_table_grow = (1 << self.code_size)
 
     def reset_code_table(self):
-        self.code_table = [[i] for i in xrange((1 << self.minimum_size) + 2)]
+        self.code_table[:] = [None for i in xrange((1 << 12))]
+        for i in xrange(1 << self.minimum_size):
+            self.code_table[i] = [i]
+        self.code_table[self.clear_code] = self.clear_code
+        self.code_table[self.end_of_information_code] = self.end_of_information_code
+        self.next_code_index = self.end_of_information_code + 1
         self.code_size = self.minimum_size + 1
-        self.next_code_table_grow = (1 << self.code_size) - 1
+        self.next_code_table_grow = (1 << self.code_size)
         # If the code table has reached the 2**12 limit, the code table may not be added to
         self.table_immutable = False
 
