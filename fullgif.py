@@ -201,10 +201,6 @@ class Gif(object):
         data = []
         minimum_lzw_code_size = ord(self.data[self.tell])
         self.tell += 1
-        def yielder(generator):
-            yield 256
-            for i in generator:
-                yield i
         while 1:
             length = ord(self.data[self.tell])
             self.tell += 1
@@ -217,22 +213,6 @@ class Gif(object):
             data.extend([ord(i) for i in self.data[self.tell:self.tell + length]])
             self.tell += length
 
-    # def compress_data(self, data):
-    #     index_buffer = [ord(data[0])]
-    #     code_table = [[i] for i in xrange(256)]
-    #     code_table.append(256)
-    #     code_table.append(257)
-    #     bits_per_entry = 9
-    #     code_stream = [256]
-    #     for K in data[1:]:
-    #         K = ord(K)
-    #         index_buffer.append(K)
-    #         if index_buffer in code_table:
-    #             continue
-    #         code_table.append(index_buffer[:])
-    #         code_stream.append(code_table.index(index_buffer[:-1]))
-    #         index_buffer[:] = [K]
-    #     print code_stream
     def parse_stream_data(self, minimum_lzw_code_size, data):
         g = Gif_LZW(minimum_lzw_code_size, data)
         g.parse_stream_data()
@@ -412,6 +392,11 @@ def main(f=None):
 
 
 class Gif_LZW(object):
+    # If the code table has reached the 2**12 limit, the code table may not be added to
+    maximum_bit_size = 12
+
+    bit_ands = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095]
+
     def __init__(self, minimum_size, data):
         self.minimum_size = minimum_size
         self.clear_code = 1 << self.minimum_size
@@ -419,13 +404,10 @@ class Gif_LZW(object):
         self.code_table = []
 
         self.reset_code_table()
-        self.bit_ands = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095]
         self.value_buffer = 0
         self.value_buffer_bits = 0
         self.tell = 0
         self.stream = []
-
-        # self.l = lzw.BitUnpacker(len(self.code_table)).unpack(chr(i) for i in data)
 
         self.data = data
 
@@ -470,24 +452,26 @@ class Gif_LZW(object):
         self.code_table[self.next_code_index] = self.code_table[code] + [self.code_table[K_code][0]]
         self.next_code_index += 1
         if self.next_code_index == self.next_code_table_grow:
-            if self.code_size == 12:
-                # Gifs aren't allowed to grow beyond 12 bits per code
+            if self.code_size == self.maximum_bit_size:
+                # Gifs aren't allowed to grow beyond this hard limit per code
                 self.table_immutable = True
                 return
-            self.code_size += 1
-            self.next_code_table_grow = (1 << self.code_size)
+            self.set_code_size(self.code_size + 1)
 
     def reset_code_table(self):
-        self.code_table[:] = [None for i in xrange((1 << 12))]
+        self.code_table[:] = [None for i in xrange((1 << self.maximum_bit_size))]
         for i in xrange(1 << self.minimum_size):
             self.code_table[i] = [i]
-        self.code_table[self.clear_code] = self.clear_code
-        self.code_table[self.end_of_information_code] = self.end_of_information_code
+        # self.code_table[self.clear_code] = self.clear_code
+        # self.code_table[self.end_of_information_code] = self.end_of_information_code
+        # Track what the next index for a code in self.code_table will be.
         self.next_code_index = self.end_of_information_code + 1
-        self.code_size = self.minimum_size + 1
-        self.next_code_table_grow = (1 << self.code_size)
-        # If the code table has reached the 2**12 limit, the code table may not be added to
+        self.set_code_size(self.minimum_size + 1)
         self.table_immutable = False
+
+    def set_code_size(self, size):
+        self.code_size = size
+        self.next_code_table_grow = (1 << self.code_size)
 
     def assure_clear_code(self, code):
         if code != self.clear_code:
