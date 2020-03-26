@@ -1,7 +1,8 @@
-import os
+
 import sys
-import lzw
+import time
 import pygame
+pygame.display.init()
 from gen import stritem_replace
 
 VERBOSE = True
@@ -47,15 +48,15 @@ class Gif_Image(object):
         self.transparent_color_index = None
 
     def make_pygame_surface(self):
-        self.surface = r = pygame.Surface((self.width, self.height))
-        x = 0
-        y = 0
-        for i in self.data:
-            r.set_at((x, y), (self.color_table[i]))
-            x += 1
-            if x == self.width:
-                x = 0
-                y += 1
+        # RGB surface
+        self.surface = pygame.image.frombuffer(
+            bytearray(subpixel for i in self.data for subpixel in self.color_table[i]),
+            (self.width, self.height),
+            'RGB'
+        )
+        # Palette surface
+        self.surface2 = pygame.image.frombuffer(bytearray(self.data), (self.width, self.height), 'P')
+        self.surface2.set_palette(self.color_table)
 
 # Counting bits starting at 0
 class Gif(object):
@@ -67,6 +68,7 @@ class Gif(object):
     def __init__(self, filename):
         if VERBOSE:
             print 'loading', (filename)
+            start_time = time.time()
         self.images = []
         self.filename = filename
         self.data = data = open(filename, 'rb').read()
@@ -77,6 +79,8 @@ class Gif(object):
         self.parse_headers()
         self.current_image = None
         self.parse_blocks()
+        if VERBOSE:
+            print 'took %.1f seconds' % (time.time() - start_time)
 
     def __repr__(self):
         return '<Gif: "%s" %s>' % (self.filename, self.dims)
@@ -102,7 +106,8 @@ class Gif(object):
         # The index in the global color table (if it exists) for the background of the screen
         self.background_color_index = ord(self.data[11])
 
-        # The aspect ratio of a pixel. I'm going to ignore it
+        # The aspect ratio of a pixel. I'm going to ignore it.
+        # the ratio defines width:height
         aspect_ratio_byte = ord(self.data[12])
         if (aspect_ratio_byte):
             # This is the specific math it uses to define the ratio
@@ -191,10 +196,6 @@ class Gif(object):
         # TODO parse the data, convert to x/y lines, handle image dims / xy position,
         #  animation and overwriting/transparency
         self.current_image.make_pygame_surface()
-        import pygamegen as pg
-        pg.view_pic(self.current_image.surface, scale=2)
-        pg.wait_for_input2()
-        r = 1
 
     def parse_image_data(self):
         total = 0
@@ -206,7 +207,6 @@ class Gif(object):
             self.tell += 1
             if length == 0:
                 parsed_data = self.parse_stream_data(minimum_lzw_code_size, data)
-                print len(data), total
                 return parsed_data
             total += length
             # data.extend(self.parse_stream_data(ord(i) for i in self.data[self.tell:self.tell + length]))
@@ -480,3 +480,22 @@ class Gif_LZW(object):
 
 class GIFError(Exception):
     pass
+
+
+def display_gif(gif, loop=True):
+    pygame.display.init()
+    s = pygame.display.set_mode(gif.dims)
+    c = pygame.time.Clock()
+    while 1:
+        for i in gif.images:
+            if pygame.event.get(pygame.QUIT):
+                break
+            s.blit(i.surface2, i.surface.get_rect())
+            print i.frame_delay,
+            c.tick(100. / i.frame_delay)
+            pygame.display.flip()
+        else:
+            if loop:
+                continue
+        break
+    pygame.display.quit()
