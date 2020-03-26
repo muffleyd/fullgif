@@ -8,6 +8,10 @@ from gen import stritem_replace
 VERBOSE = True
 
 
+# If the gif provides 0 as a frame delay, use this instead
+DEFAULT_FRAME_DELAY = 10
+
+
 # between 0 and 65535
 def chr16(num):
     return chr(num % 256) + chr(num / 256)
@@ -240,7 +244,7 @@ class Gif(object):
             )
         self.current_image.disposal_method = disposal_method
         # Bits 5-7 last 3 bits are reserved
-        self.current_image.frame_delay = ord16(self.data[self.tell:self.tell + 2])
+        self.current_image.frame_delay = ord16(self.data[self.tell:self.tell + 2]) or DEFAULT_FRAME_DELAY
         self.tell += 2
         if has_transparent_color_index:
             self.current_image.transparent_color_index = ord(self.data[self.tell])
