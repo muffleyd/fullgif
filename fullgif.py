@@ -269,11 +269,13 @@ class Gif(object):
     # Ignored
     def parse_application_block(self):
         self.tell += 12
-        data_length = ord(self.data[self.tell])
-        self.tell += data_length
-        if self.data[self.tell] != '\x00':
-            raise GIFError('Application extensions block terminator not found')
-        self.tell += 1
+        data_length = self.data[self.tell]
+        while 1:
+            self.tell += ord(data_length) + 1
+            data_length = self.data[self.tell]
+            if data_length == '\x00':
+                self.tell += 1
+                return
 
     def parse_comment_block(self):
         comment_length = ord(self.data[self.tell])
