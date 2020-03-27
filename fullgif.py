@@ -412,15 +412,13 @@ class Gif_LZW(object):
         self.reset_code_table()
         self.value_buffer = 0
         self.value_buffer_bits = 0
-        self.tell = 0
         self.stream = []
 
-        self.data = data
+        self.next_byte = iter(data).next
 
     def get_next_code(self):
         while self.value_buffer_bits < self.code_size:
-            self.value_buffer += (self.data[self.tell] << self.value_buffer_bits)
-            self.tell += 1
+            self.value_buffer += (self.next_byte() << self.value_buffer_bits)
             self.value_buffer_bits += 8
         value = self.value_buffer & self.bit_ands[self.code_size]
         self.value_buffer >>= self.code_size
