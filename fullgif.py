@@ -413,9 +413,10 @@ class Gif_LZW(object):
     def _get_next_code(self):
         value_buffer = 0
         value_buffer_bits = 0
+        bit_ands = self.bit_ands
         for byte in self.data:
             if value_buffer_bits >= self.code_size:
-                value = value_buffer & self.bit_ands[self.code_size]
+                value = value_buffer & bit_ands[self.code_size]
                 value_buffer >>= self.code_size
                 value_buffer_bits -= self.code_size
                 yield value
@@ -442,7 +443,7 @@ class Gif_LZW(object):
             prev_code = self.get_next_code()
             if prev_code == self.end_of_information_code:
                 return 0
-        self.add_to_stream(prev_code)
+        self.stream.extend(self.code_table[prev_code])
         while 1:
             code = self.get_next_code()
             if code < self.next_code_index:
@@ -452,27 +453,22 @@ class Gif_LZW(object):
                     return 1
                 if code == self.end_of_information_code:
                     return 0
-                self.add_to_stream(code)
-                self.add_to_table(prev_code, code)
+                K_code = code
             else:
-                self.add_to_table(prev_code, prev_code)
-                self.add_to_stream(code)
+                K_code = prev_code
+
+            if not self.table_immutable:
+                self.code_table[self.next_code_index] = self.code_table[prev_code] + [self.code_table[K_code][0]]
+                self.next_code_index += 1
+                if self.next_code_index == self.next_code_table_grow:
+                    if self.code_size == self.maximum_bit_size:
+                        # Gifs aren't allowed to grow beyond this hard limit per code
+                        self.table_immutable = True
+                    else:
+                        self.set_code_size(self.code_size + 1)
+
+            self.stream.extend(self.code_table[code])
             prev_code = code
-
-    def add_to_stream(self, code):
-        self.stream.extend(self.code_table[code])
-
-    def add_to_table(self, code, K_code):
-        if self.table_immutable:
-            return
-        self.code_table[self.next_code_index] = self.code_table[code] + [self.code_table[K_code][0]]
-        self.next_code_index += 1
-        if self.next_code_index == self.next_code_table_grow:
-            if self.code_size == self.maximum_bit_size:
-                # Gifs aren't allowed to grow beyond this hard limit per code
-                self.table_immutable = True
-                return
-            self.set_code_size(self.code_size + 1)
 
     def reset_code_table(self):
         self.code_table[:] = [None for i in xrange((1 << self.maximum_bit_size))]
