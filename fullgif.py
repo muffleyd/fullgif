@@ -56,6 +56,8 @@ class Gif_Image(object):
         self.image = pygame.image.frombuffer(self.data, (self.width, self.height), 'P')
         self.image.set_palette(self.color_table)
         self.image = self.image.convert(24)
+        if self.transparent_color_index:
+            self.image.set_colorkey(self.color_table[self.transparent_color_index])
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
 
 # Counting bits starting at 0
@@ -510,14 +512,19 @@ def fit_to(start_dims, dims=(1920, 1080)):
 
 def display_gif(gif, fitto=(1000, 1000), loop=True):
     pygame.display.init()
+    base_s = pygame.Surface(gif.dims)
     s = pygame.display.set_mode(fit_to(gif.dims, fitto))
+    if gif.background_color_index:
+        base_s.fill(gif.global_color_table[gif.background_color_index])
+        pygame.display.flip()
     c = pygame.time.Clock()
     while 1:
         prev = None
         for i in gif.images:
             if pygame.event.get(pygame.QUIT):
                 break
-            s.blit(pygame.transform.smoothscale(i.image, fit_to(i.image.get_size(), fitto)), i.rect)
+            base_s.blit(i.image, i.rect)
+            s.blit(pygame.transform.smoothscale(base_s, fit_to(i.image.get_size(), fitto)), s.get_rect())
             if prev:
                 c.tick(100. / prev.frame_delay)
             pygame.display.flip()
