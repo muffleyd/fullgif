@@ -52,15 +52,10 @@ class Gif_Image(object):
         self.transparent_color_index = None
 
     def make_pygame_surface(self):
-        # RGB surface
-        self.surface = pygame.image.frombuffer(
-            bytearray(subpixel for i in self.data for subpixel in self.color_table[i]),
-            (self.width, self.height),
-            'RGB'
-        )
-        # Palette surface
-        self.surface2 = pygame.image.frombuffer(bytearray(self.data), (self.width, self.height), 'P')
-        self.surface2.set_palette(self.color_table)
+        self.image = pygame.image.frombuffer(bytearray(self.data), (self.width, self.height), 'P')
+        self.image.set_palette(self.color_table)
+        self.image = self.image.convert(24)
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
 
 # Counting bits starting at 0
 class Gif(object):
