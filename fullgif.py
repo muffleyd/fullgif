@@ -410,49 +410,46 @@ class Gif_LZW(object):
         self.code_table = []
 
         self.reset_code_table()
-        self.value_buffer = 0
-        self.value_buffer_bits = 0
         self.stream = []
 
         self.data = iter(data)
         self.get_next_code = self._get_next_code().next
 
     def _get_next_code(self):
+        value_buffer = 0
+        value_buffer_bits = 0
         for byte in self.data:
-            if self.value_buffer_bits >= self.code_size:
-                value = self.value_buffer & self.bit_ands[self.code_size]
-                self.value_buffer >>= self.code_size
-                self.value_buffer_bits -= self.code_size
+            if value_buffer_bits >= self.code_size:
+                value = value_buffer & self.bit_ands[self.code_size]
+                value_buffer >>= self.code_size
+                value_buffer_bits -= self.code_size
                 yield value
-            self.value_buffer += (byte << self.value_buffer_bits)
-            self.value_buffer_bits += 8
+            value_buffer += (byte << value_buffer_bits)
+            value_buffer_bits += 8
+        # Some gifs have the end of information code in full before the expected number of bits have been read
+        if value_buffer == self.end_of_information_code:
+            yield value_buffer
 
     def parse_stream_data(self):
-        try:
-            self.assure_clear_code(self.get_next_code())
-            prev_code = self.get_next_code()
-            self.add_to_stream(prev_code)
-            while 1:
-                code = self.get_next_code()
-                if code < self.next_code_index:
-                    if code == self.clear_code:
-                        self.reset_code_table()
-                        prev_code = None
-                        continue
-                    if code == self.end_of_information_code:
-                        return
-                    self.add_to_stream(code)
-                    if prev_code is not None:
-                        self.add_to_table(prev_code, code)
-                else:
-                    self.add_to_table(prev_code, prev_code)
-                    self.add_to_stream(code)
-                prev_code = code
-        except StopIteration:
-            # Some gifs have the end of information code in full before the expected number of bits have been read
-            if self.value_buffer == self.end_of_information_code:
-                return
-            raise
+        self.assure_clear_code(self.get_next_code())
+        prev_code = self.get_next_code()
+        self.add_to_stream(prev_code)
+        while 1:
+            code = self.get_next_code()
+            if code < self.next_code_index:
+                if code == self.clear_code:
+                    self.reset_code_table()
+                    prev_code = None
+                    continue
+                if code == self.end_of_information_code:
+                    return
+                self.add_to_stream(code)
+                if prev_code is not None:
+                    self.add_to_table(prev_code, code)
+            else:
+                self.add_to_table(prev_code, prev_code)
+                self.add_to_stream(code)
+            prev_code = code
 
     def add_to_stream(self, code):
         self.stream.extend(self.code_table[code])
