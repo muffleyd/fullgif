@@ -251,6 +251,7 @@ class Gif(object):
         self.tell += 1
         if self.data[self.tell] != '\x00':
             raise GIFError('Graphics control block terminator not found')
+        self.tell += 1
 
     # Ignored
     def parse_plain_text_block(self):
