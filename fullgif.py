@@ -1,4 +1,4 @@
-
+from __future__ import print_function, division
 import sys
 import time
 import pygame
@@ -14,7 +14,7 @@ DEFAULT_FRAME_DELAY = 10
 
 # between 0 and 65535
 def chr16(num):
-    return chr(num % 256) + chr(num / 256)
+    return chr(num % 256) + chr(num // 256)
 
 
 def ord16(letters):
@@ -66,7 +66,7 @@ class Gif(object):
 
     def __init__(self, filename):
         if VERBOSE:
-            print 'loading', (filename)
+            print('loading', (filename))
             start_time = time.time()
         self.images = []
         self.filename = filename
@@ -79,7 +79,7 @@ class Gif(object):
         self.current_image = None
         self.parse_blocks()
         if VERBOSE:
-            print 'took %.2f seconds' % (time.time() - start_time)
+            print('took %.2f seconds' % (time.time() - start_time))
 
     def __repr__(self):
         return '<Gif: "%s" %s>' % (self.filename, self.dims)
@@ -110,7 +110,7 @@ class Gif(object):
         aspect_ratio_byte = ord(self.data[12])
         if (aspect_ratio_byte):
             # This is the specific math it uses to define the ratio
-            self.pixel_aspect_ratio = (aspect_ratio_byte + 15) / 64.
+            self.pixel_aspect_ratio = (aspect_ratio_byte + 15) / 64
         else:
             # If not set then it's disabled
             self.pixel_aspect_ratio = 1
@@ -122,7 +122,7 @@ class Gif(object):
             self.global_color_table = []
 
     def parse_color_table(self, table, entries):
-        for i in xrange(entries):
+        for i in range(entries):
             table[i] = (
                 ord(self.data[self.tell]), ord(self.data[self.tell + 1]), ord(self.data[self.tell + 2])
             )
@@ -284,13 +284,13 @@ class Gif(object):
 
     def get_delays(self):
         for i in self.frames:
-            print ord16(self.data[i:i + 2]),
+            print(ord16(self.data[i:i + 2]), end=' ')
 
     def frame_delays(self):
         data = self.data
         self.frames = []
         self.framevals = []
-        for i in xrange(len(data)):
+        for i in range(len(data)):
             # 0, \x00: end previous block
             # 1-3, \x21\xf9\x04: Graphic Control Extension
             # 4, next is transparency data
@@ -306,11 +306,11 @@ class Gif(object):
                 # assert data[i+9] == '\x2c' #new image block after descriptor!
                 self.frames.append(i + 5)
                 self.framevals.append(ord16(data[i + 5:i + 7]))
-        print
+        print()
 
     def set_fps(self, value):
         if VERBOSE:
-            print 'setting FPS to', value
+            print('setting FPS to', value)
         value = check_fpsval(value)
         values = dict()
         value = float(value)
@@ -322,24 +322,24 @@ class Gif(object):
             values[frame].append(i)
         for i in values:
             self.set_delays(i, values[i], False)
-        print 'fps set to %d' % value
+        print('fps set to %d' % value)
         self.save()
 
     def set_delays(self, value, indexs=None, save=True):
         if VERBOSE:
-            print 'setting delay to', value
+            print('setting delay to', value)
         value = check_delayval(value)
         if indexs is None:
             if VERBOSE:
-                print 'for all indexs'
+                print('for all indexs')
             indexs = self.frames
         elif not hasattr(indexs, '__iter__'):
             if VERBOSE:
-                print 'for index(s)', indexs
+                print('for index(s)', indexs)
             indexs = [indexs]
         else:
             if VERBOSE:
-                print 'for indexs', indexs
+                print('for indexs', indexs)
         for i in indexs:
             self.data = stritem_replace(self.data, i, chr16(value), 2)
         if save:
@@ -347,7 +347,7 @@ class Gif(object):
 
     def save(self):
         if VERBOSE:
-            print 'saving', self
+            print('saving', self)
         open(self.filename, 'wb').write(self.data)
 
 
@@ -363,7 +363,7 @@ def main(f=None):
             pass
         else:
             if sys.argv[ind + 1] == '?':
-                delay = raw_input('delay (3): ') or 3
+                delay = input('delay (3): ') or 3
                 delay = int(delay)
             else:
                 delay = int(sys.argv[ind + 1])
@@ -371,8 +371,8 @@ def main(f=None):
     else:
         doFPS = True
         if sys.argv[ind + 1] == '?':
-            print 'current fps: ', (100. * len(g.framevals) / sum(g.framevals))
-            fps = float(raw_input('fps (30): ') or 30)
+            print('current fps: ', (100 * len(g.framevals) / sum(g.framevals)))
+            fps = float(input('fps (30): ') or 30)
             if fps < 0:
                 doFPS = False
                 fps = -fps
@@ -386,7 +386,7 @@ def main(f=None):
         if '-O=' in i:  # force best, it's 2:25am fu
             import opt_gif
             if VERBOSE:
-                print 'optimizing . . .'
+                print('optimizing . . .')
             opt_gif.main(sys.argv[1])
             break
     return g
@@ -396,7 +396,7 @@ class Gif_LZW(object):
     # If the code table has reached the 2**12 limit, the code table may not be added to
     maximum_bit_size = 12
 
-    bit_ands = [2 ** i - 1 for i in xrange(13)]
+    bit_ands = [2 ** i - 1 for i in range(13)]
 
     def __init__(self, minimum_size, data):
         self.minimum_size = minimum_size
@@ -408,7 +408,7 @@ class Gif_LZW(object):
         self.stream = []
 
         self.data = iter(data)
-        self.get_next_code = self._get_next_code().next
+        self.get_next_code = self._get_next_code().__next__
 
     def _get_next_code(self):
         value_buffer = 0
@@ -475,8 +475,8 @@ class Gif_LZW(object):
             self.set_code_size(self.code_size + 1)
 
     def reset_code_table(self):
-        self.code_table[:] = [None for i in xrange((1 << self.maximum_bit_size))]
-        for i in xrange(1 << self.minimum_size):
+        self.code_table[:] = [None for i in range((1 << self.maximum_bit_size))]
+        for i in range(1 << self.minimum_size):
             self.code_table[i] = [i]
         # self.code_table[self.clear_code] = self.clear_code
         # self.code_table[self.end_of_information_code] = self.end_of_information_code
@@ -500,8 +500,8 @@ class GIFError(Exception):
 
 def fit_to(start_dims, dims=(1920, 1080)):
     width, height = start_dims
-    w = float(dims[0]) / width
-    h = float(dims[1]) / height
+    w = dims[0] / width
+    h = dims[1] / height
     if w < h:
         w2 = dims[0]
         h2 = height * w
