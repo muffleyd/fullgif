@@ -488,16 +488,27 @@ class GIFError(Exception):
     pass
 
 
-def display_gif(gif, loop=True):
+def fit_to(start_dims, dims=(1920, 1080)):
+    width, height = start_dims
+    w = float(dims[0]) / width
+    h = float(dims[1]) / height
+    if w < h:
+        w2 = dims[0]
+        h2 = height * w
+    else:
+        w2 = width * h
+        h2 = dims[1]
+    return (int(float(w2)), int(float(h2)))
+
+def display_gif(gif, fitto=(1000, 1000), loop=True):
     pygame.display.init()
-    s = pygame.display.set_mode(gif.dims)
+    s = pygame.display.set_mode(fit_to(gif.dims, fitto))
     c = pygame.time.Clock()
     while 1:
         for i in gif.images:
             if pygame.event.get(pygame.QUIT):
                 break
-            s.blit(i.surface2, i.surface.get_rect())
-            print i.frame_delay,
+            s.blit(pygame.transform.smoothscale(i.surface, fit_to(i.surface.get_size(), fitto)), i.surface.get_rect())
             c.tick(100. / i.frame_delay)
             pygame.display.flip()
         else:
