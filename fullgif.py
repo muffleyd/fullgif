@@ -414,16 +414,18 @@ class Gif_LZW(object):
         self.value_buffer_bits = 0
         self.stream = []
 
-        self.next_byte = iter(data).next
+        self.data = iter(data)
+        self.get_next_code = self._get_next_code().next
 
-    def get_next_code(self):
-        while self.value_buffer_bits < self.code_size:
-            self.value_buffer += (self.next_byte() << self.value_buffer_bits)
+    def _get_next_code(self):
+        for byte in self.data:
+            if self.value_buffer_bits >= self.code_size:
+                value = self.value_buffer & self.bit_ands[self.code_size]
+                self.value_buffer >>= self.code_size
+                self.value_buffer_bits -= self.code_size
+                yield value
+            self.value_buffer += (byte << self.value_buffer_bits)
             self.value_buffer_bits += 8
-        value = self.value_buffer & self.bit_ands[self.code_size]
-        self.value_buffer >>= self.code_size
-        self.value_buffer_bits -= self.code_size
-        return value
 
     def parse_stream_data(self):
         try:
@@ -446,7 +448,7 @@ class Gif_LZW(object):
                     self.add_to_table(prev_code, prev_code)
                     self.add_to_stream(code)
                 prev_code = code
-        except IndexError:
+        except StopIteration:
             # Some gifs have the end of information code in full before the expected number of bits have been read
             if self.value_buffer == self.end_of_information_code:
                 return
