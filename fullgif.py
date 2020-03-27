@@ -2,11 +2,9 @@ from __future__ import print_function, division
 import sys
 import time
 import pygame
+from io import BytesIO
 pygame.display.init()
-try:
-    from gen import stritem_replace
-except ImportError:
-    from dmgen.gen import stritem_replace
+from dmgen.gen import stritem_replace
 
 VERBOSE = True
 
@@ -21,7 +19,7 @@ def chr16(num):
 
 
 def ord16(letters):
-    return ord(letters[0]) + ord(letters[1]) * 256
+    return letters[0] + letters[1] * 256
 
 
 def check_fpsval(value):
@@ -55,7 +53,7 @@ class Gif_Image(object):
         self.transparent_color_index = None
 
     def make_pygame_surface(self):
-        self.image = pygame.image.frombuffer(bytearray(self.data), (self.width, self.height), 'P')
+        self.image = pygame.image.frombuffer(self.data, (self.width, self.height), 'P')
         self.image.set_palette(self.color_table)
         self.image = self.image.convert(24)
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
@@ -64,8 +62,8 @@ class Gif_Image(object):
 class Gif(object):
     """class to manipulate gifs"""
 
-    GIF87a = 'GIF87a'
-    GIF89a = 'GIF89a'
+    GIF87a = b'GIF87a'
+    GIF89a = b'GIF89a'
 
     def __init__(self, filename):
         if VERBOSE:
@@ -90,7 +88,7 @@ class Gif(object):
     def parse_headers(self):
         self.dims = (ord16(self.data[6:8]), ord16(self.data[8:10]))
 
-        screen_descriptor = ord(self.data[10])
+        screen_descriptor = self.data[10]
         # bits 0-2 are the bits pixel in the image minus 1 (0-7 => 1-8)
         global_color_table_entry_size = 1 + (screen_descriptor & 7)
         # the number of entries in the global color table can be calculated as such
@@ -106,11 +104,11 @@ class Gif(object):
         self.global_color_table_exists = screen_descriptor & 128
 
         # The index in the global color table (if it exists) for the background of the screen
-        self.background_color_index = ord(self.data[11])
+        self.background_color_index = self.data[11]
 
         # The aspect ratio of a pixel. I'm going to ignore it.
         # the ratio defines width:height
-        aspect_ratio_byte = ord(self.data[12])
+        aspect_ratio_byte = self.data[12]
         if (aspect_ratio_byte):
             # This is the specific math it uses to define the ratio
             self.pixel_aspect_ratio = (aspect_ratio_byte + 15) / 64
@@ -126,41 +124,41 @@ class Gif(object):
 
     def parse_color_table(self, table, entries):
         for i in range(entries):
-            table[i] = (
-                ord(self.data[self.tell]), ord(self.data[self.tell + 1]), ord(self.data[self.tell + 2])
-            )
+            table[i] = self.data[self.tell:self.tell+3]
             self.tell += 3
 
     def parse_blocks(self):
         while 1:
             separator = self.data[self.tell]
             self.tell += 1
-            # '\x3b' is the end of file char
-            if separator == '\x3b':
+            # '\x3b' = 59 is the end of file char
+            if separator == 59:
                 break
             if self.current_image is None:
                 # graphics extension block, image block
                 self.current_image = Gif_Image()
-            # '\x2c' is the local image block
-            if separator == '\x2c':
+            # '\x2c' = 44 is the local image block
+            if separator == 44:
                 self.parse_image_block()
                 self.images.append(self.current_image)
                 self.current_image = None
-            elif separator == '\x21': #89a
+            elif separator == 33: #89a '\x21' = 33
                 if self.version == self.GIF87a:
                     raise GIFError('87a gif has 89a block')
                 label = self.data[self.tell]
                 self.tell += 1
-                if label == '\xf9':
+                if label == 249: # '\xf9' = 249
                     self.parse_graphics_control_block()
-                elif label == '\x01':
+                elif label == 1: # '\x01' = 1
                     self.parse_plain_text_block()
-                elif label == '\xff':
+                elif label == 255: # '\xff' = 255
                     self.parse_application_block()
-                elif label == '\xfe':
+                elif label == 254: # '\xfe' = 254
                     self.parse_comment_block()
                 else:
-                    raise GIFError('Unknown \\x21 block label %s|%s' % (label, ord(label)))
+                    raise GIFError('Unknown \\x21/33 block label %s' % label)
+            else:
+                raise GIFError('Unknown separator label %s' % separator)
 
     def parse_image_block(self):
         self.current_image.x = ord16(self.data[self.tell:self.tell + 2])
@@ -173,7 +171,7 @@ class Gif(object):
         self.current_image.height = ord16(self.data[self.tell:self.tell + 2])
         self.tell += 2
 
-        packed = ord(self.data[self.tell])
+        packed = self.data[self.tell]
         self.tell += 1
         # Bit 0 Is there a local color table
         local_color_table = packed & 1
@@ -201,34 +199,33 @@ class Gif(object):
 
     def parse_image_data(self):
         total = 0
-        data = []
-        minimum_lzw_code_size = ord(self.data[self.tell])
+        data = BytesIO()
+        minimum_lzw_code_size = self.data[self.tell]
         self.tell += 1
         while 1:
-            length = ord(self.data[self.tell])
+            length = self.data[self.tell]
             self.tell += 1
             if length == 0:
                 parsed_data = self.parse_stream_data(minimum_lzw_code_size, data)
                 return parsed_data
             total += length
-            # data.extend(self.parse_stream_data(ord(i) for i in self.data[self.tell:self.tell + length]))
-            data.extend([ord(i) for i in self.data[self.tell:self.tell + length]])
+            data.write(self.data[self.tell:self.tell + length])
             self.tell += length
 
     def parse_stream_data(self, minimum_lzw_code_size, data):
         g = Gif_LZW(minimum_lzw_code_size, data)
         g.parse_stream_data()
-        return g.stream
+        return g.stream.getbuffer()
 
     def parse_graphics_control_block(self):
-        block_size = ord(self.data[self.tell])
+        block_size = self.data[self.tell]
         if block_size != 4:
             raise GIFError(
                 'Unexpected block size in graphics control extension block (expected 4, got %d)' % block_size
             )
         self.tell += 1
         self.current_image.graphics_extension_block = True
-        packed_bit = ord(self.data[self.tell])
+        packed_bit = self.data[self.tell]
         self.tell += 1
         # Bit 0 Is the later color index byte has data
         has_transparent_color_index = packed_bit & 1
@@ -245,11 +242,11 @@ class Gif(object):
         self.current_image.frame_delay = ord16(self.data[self.tell:self.tell + 2]) or DEFAULT_FRAME_DELAY
         self.tell += 2
         if has_transparent_color_index:
-            self.current_image.transparent_color_index = ord(self.data[self.tell])
+            self.current_image.transparent_color_index = self.data[self.tell]
         else:
             self.current_image.transparent_color_index = None
         self.tell += 1
-        if self.data[self.tell] != '\x00':
+        if self.data[self.tell] != 0:
             raise GIFError('Graphics control block terminator not found')
         self.tell += 1
 
@@ -257,7 +254,7 @@ class Gif(object):
     def parse_plain_text_block(self):
         # block is 15 bytes long, the first 2 are read in parse_blocks(), and last 1 is terminator
         self.tell += 12
-        if self.data[self.tell] != '\x00':
+        if self.data[self.tell] != 0:
             raise GIFError('Plain text block terminator not found')
         self.tell += 1
         # graphics extension block affects the next block of plain text or image type. Since we're ignoring plain text,
@@ -270,19 +267,19 @@ class Gif(object):
         self.tell += 12
         data_length = self.data[self.tell]
         while 1:
-            self.tell += ord(data_length) + 1
+            self.tell += data_length + 1
             data_length = self.data[self.tell]
-            if data_length == '\x00':
+            if data_length == 0:
                 self.tell += 1
                 return
 
     def parse_comment_block(self):
-        comment_length = ord(self.data[self.tell])
+        comment_length = self.data[self.tell]
         self.tell += 1
         comment = self.data[self.tell:self.tell + comment_length]
         self.current_image.comments.append(comment)
         self.tell += comment_length
-        if self.data[self.tell] != '\x00':
+        if self.data[self.tell] != 0:
             raise GIFError('Comment block terminator not found')
         self.tell += 1
 
@@ -409,9 +406,9 @@ class Gif_LZW(object):
         self.code_table = []
 
         self.reset_code_table()
-        self.stream = []
+        self.stream = BytesIO()
 
-        self.data = iter(data)
+        self.data = data.getbuffer()
         self.get_next_code = self._get_next_code()
 
     def _get_next_code(self):
@@ -447,7 +444,7 @@ class Gif_LZW(object):
             prev_code = next(self.get_next_code)
             if prev_code == self.end_of_information_code:
                 return 0
-        self.stream.extend(self.code_table[prev_code])
+        self.stream.write(self.code_table[prev_code])
         while 1:
             code = next(self.get_next_code)
             if code < self.next_code_index:
@@ -462,7 +459,7 @@ class Gif_LZW(object):
                 K_code = prev_code
 
             if not self.table_immutable:
-                self.code_table[self.next_code_index] = self.code_table[prev_code] + [self.code_table[K_code][0]]
+                self.code_table[self.next_code_index] = bytes([*self.code_table[prev_code], self.code_table[K_code][0]])
                 self.next_code_index += 1
                 if self.next_code_index == self.next_code_table_grow:
                     if self.code_size == self.maximum_bit_size:
@@ -471,13 +468,13 @@ class Gif_LZW(object):
                     else:
                         self.set_code_size(self.code_size + 1)
 
-            self.stream.extend(self.code_table[code])
+            self.stream.write(self.code_table[code])
             prev_code = code
 
     def reset_code_table(self):
-        self.code_table[:] = [None for i in range((1 << self.maximum_bit_size))]
+        self.code_table[:] = [None for i in range(1 << self.maximum_bit_size)]
         for i in range(1 << self.minimum_size):
-            self.code_table[i] = [i]
+            self.code_table[i] = bytes([i])
         # self.code_table[self.clear_code] = self.clear_code
         # self.code_table[self.end_of_information_code] = self.end_of_information_code
         # Track what the next index for a code in self.code_table will be.
@@ -509,6 +506,7 @@ def fit_to(start_dims, dims=(1920, 1080)):
         w2 = width * h
         h2 = dims[1]
     return (int(float(w2)), int(float(h2)))
+
 
 def display_gif(gif, fitto=(1000, 1000), loop=True):
     pygame.display.init()
