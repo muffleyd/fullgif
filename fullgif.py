@@ -432,20 +432,33 @@ class Gif_LZW(object):
 
     def parse_stream_data(self):
         self.assure_clear_code(self.get_next_code())
-        prev_code = self.get_next_code()
+        while 1:
+            response = self._parse_stream_data()
+            # Fake tail recursion by returning 1.
+            if response == 1:
+                continue
+            else:
+                return
+
+    def _parse_stream_data(self):
+        prev_code = self.clear_code
+        # clear codes can appear AT ANY TIME
+        while prev_code == self.clear_code:
+            prev_code = self.get_next_code()
+            if prev_code == self.end_of_information_code:
+                return 0
         self.add_to_stream(prev_code)
         while 1:
             code = self.get_next_code()
             if code < self.next_code_index:
                 if code == self.clear_code:
                     self.reset_code_table()
-                    prev_code = None
-                    continue
+                    # No tail recursion, so here we are. Wipe out prev_code like this.
+                    return 1
                 if code == self.end_of_information_code:
-                    return
+                    return 0
                 self.add_to_stream(code)
-                if prev_code is not None:
-                    self.add_to_table(prev_code, code)
+                self.add_to_table(prev_code, code)
             else:
                 self.add_to_table(prev_code, prev_code)
                 self.add_to_stream(code)
