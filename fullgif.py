@@ -515,12 +515,15 @@ def display_gif(gif, fitto=(1000, 1000), loop=True):
     s = pygame.display.set_mode(fit_to(gif.dims, fitto))
     c = pygame.time.Clock()
     while 1:
+        prev = None
         for i in gif.images:
             if pygame.event.get(pygame.QUIT):
                 break
-            s.blit(pygame.transform.smoothscale(i.surface, fit_to(i.surface.get_size(), fitto)), i.surface.get_rect())
-            c.tick(100. / i.frame_delay)
+            s.blit(pygame.transform.smoothscale(i.image, fit_to(i.image.get_size(), fitto)), i.rect)
+            if prev:
+                c.tick(100. / prev.frame_delay)
             pygame.display.flip()
+            prev = i
         else:
             if loop:
                 continue
