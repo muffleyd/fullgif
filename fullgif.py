@@ -92,7 +92,7 @@ class Gif(object):
         # bits 0-2 are the bits pixel in the image minus 1 (0-7 => 1-8)
         global_color_table_entry_size = 1 + (screen_descriptor & 7)
         # the number of entries in the global color table can be calculated as such
-        self.global_color_table_entries = 1 << global_color_table_entry_size  # = 2 ** global_color_table_entry_size
+        global_color_table_entries = 1 << global_color_table_entry_size  # = 2 ** global_color_table_entry_size
         # bit 3 is whether the global color table is sorted by most used colors
         self.global_color_table_sorted = screen_descriptor & 8
         if self.global_color_table_sorted and self.version == self.GIF87a:
@@ -117,13 +117,13 @@ class Gif(object):
             self.pixel_aspect_ratio = 1
         self.tell = 13
         if self.global_color_table_exists:
-            self.global_color_table = [None] * self.global_color_table_entries
-            self.parse_color_table(self.global_color_table, self.global_color_table_entries)
+            self.global_color_table = [None] * global_color_table_entries
+            self.parse_color_table(self.global_color_table)
         else:
             self.global_color_table = []
 
-    def parse_color_table(self, table, entries):
-        for i in range(entries):
+    def parse_color_table(self, table):
+        for i in range(len(table)):
             table[i] = self.data[self.tell:self.tell+3]
             self.tell += 3
 
@@ -183,12 +183,12 @@ class Gif(object):
             self.current_image.color_table_sorted = 0
             # raise GIFError('color table sorted cannot be set for %s'%self.GIF87a)
         # Bits 3-4 Reserved
-        # Bits 5-7 The size of the local color table (see same bits for global color table)
-        color_table_entry_size = 1 + (packed & 7)
-        self.current_image.color_table_entries = 1 << color_table_entry_size  # = 2 ** color_table_entry_size
         if local_color_table:
-            self.current_image.color_table = [None] * self.current_image.color_table_entries
-            self.parse_color_table(self.current_image.color_table, self.current_image.color_table_entries)
+            # Bits 5-7 The size of the local color table (see same bits for global color table)
+            color_table_entry_size = 1 + (packed & 224)  # (32 + 64 + 128)
+            color_table_entries = 1 << color_table_entry_size  # = 2 ** color_table_entry_size
+            self.current_image.color_table = [None] * color_table_entries
+            self.parse_color_table(self.current_image.color_table)
         else:
             # Use the global color table if there's no local one
             self.current_image.color_table = self.global_color_table
@@ -232,10 +232,10 @@ class Gif(object):
         # Bit 1 Is user input is required to move to the next image (ignored)
         self.current_image.user_input_required = packed_bit & 2
         # Bits 2-4 Gives one of 4 methods to dispose of the previous image
-        disposal_method = packed_bit & 28  # (4 + 8 + 16)
-        if disposal_method != 0 and disposal_method != 4 and disposal_method != 8 and disposal_method != 16:
+        disposal_method = packed_bit >> 2 & 7  # bitshift to go to bits 0-2, then (1 + 2 + 4)
+        if disposal_method > 3:
             raise GIFError(
-                'Previous image disposal method is invalid (expected 0, 4, 8, or 16, got %d' % disposal_method
+                'Previous image disposal method is invalid (expected 0, 1, 2, or 3, got %d' % disposal_method
             )
         self.current_image.disposal_method = disposal_method
         # Bits 5-7 last 3 bits are reserved
