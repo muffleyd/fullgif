@@ -410,19 +410,21 @@ class Gif_LZW(object):
         self.reset_code_table()
         self.stream = BytesIO()
 
-        self.data = data.getbuffer()
+        self.data = data
         self.get_next_code = self._get_next_code()
 
     def _get_next_code(self):
         value_buffer = 0
         value_buffer_bits = 0
         bit_ands = self.bit_ands
-        for byte in self.data:
-            if value_buffer_bits >= self.code_size:
-                value = value_buffer & bit_ands[self.code_size]
-                value_buffer >>= self.code_size
-                value_buffer_bits -= self.code_size
+        code_size = self.code_size
+        for byte in self.data.getbuffer():
+            if value_buffer_bits >= code_size:
+                value = value_buffer & bit_ands[code_size]
+                value_buffer >>= code_size
+                value_buffer_bits -= code_size
                 yield value
+                code_size = self.code_size
             value_buffer += (byte << value_buffer_bits)
             value_buffer_bits += 8
         # Some gifs have the end of information code in full before the expected number of bits have been read
