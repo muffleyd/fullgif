@@ -84,7 +84,7 @@ class Gif(object):
         self.current_image = None
         self.parse_blocks()
         if VERBOSE:
-            print 'took %.1f seconds' % (time.time() - start_time)
+            print 'took %.2f seconds' % (time.time() - start_time)
 
     def __repr__(self):
         return '<Gif: "%s" %s>' % (self.filename, self.dims)
@@ -401,7 +401,7 @@ class Gif_LZW(object):
     # If the code table has reached the 2**12 limit, the code table may not be added to
     maximum_bit_size = 12
 
-    bit_ands = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095]
+    bit_ands = [2 ** i - 1 for i in xrange(13)]
 
     def __init__(self, minimum_size, data):
         self.minimum_size = minimum_size
@@ -418,36 +418,41 @@ class Gif_LZW(object):
         self.data = data
 
     def get_next_code(self):
-        while self.tell < len(self.data):
-            while self.value_buffer_bits < self.code_size:
-                self.value_buffer += (self.data[self.tell] << self.value_buffer_bits)
-                self.tell += 1
-                self.value_buffer_bits += 8
-            value = self.value_buffer & self.bit_ands[self.code_size]
-            self.value_buffer >>= self.code_size
-            self.value_buffer_bits -= self.code_size
-            return value
+        while self.value_buffer_bits < self.code_size:
+            self.value_buffer += (self.data[self.tell] << self.value_buffer_bits)
+            self.tell += 1
+            self.value_buffer_bits += 8
+        value = self.value_buffer & self.bit_ands[self.code_size]
+        self.value_buffer >>= self.code_size
+        self.value_buffer_bits -= self.code_size
+        return value
 
     def parse_stream_data(self):
-        self.assure_clear_code(self.get_next_code())
-        prev_code = self.get_next_code()
-        self.add_to_stream(prev_code)
-        while self.tell < len(self.data):
-            code = self.get_next_code()
-            if code < self.next_code_index:
-                if code == self.clear_code:
-                    self.reset_code_table()
-                    prev_code = None
-                    continue
-                if code == self.end_of_information_code:
-                    return
-                self.add_to_stream(code)
-                if prev_code is not None:
-                    self.add_to_table(prev_code, code)
-            else:
-                self.add_to_table(prev_code, prev_code)
-                self.add_to_stream(code)
-            prev_code = code
+        try:
+            self.assure_clear_code(self.get_next_code())
+            prev_code = self.get_next_code()
+            self.add_to_stream(prev_code)
+            while 1:
+                code = self.get_next_code()
+                if code < self.next_code_index:
+                    if code == self.clear_code:
+                        self.reset_code_table()
+                        prev_code = None
+                        continue
+                    if code == self.end_of_information_code:
+                        return
+                    self.add_to_stream(code)
+                    if prev_code is not None:
+                        self.add_to_table(prev_code, code)
+                else:
+                    self.add_to_table(prev_code, prev_code)
+                    self.add_to_stream(code)
+                prev_code = code
+        except IndexError:
+            # Some gifs have the end of information code in full before the expected number of bits have been read
+            if self.value_buffer == self.end_of_information_code:
+                return
+            raise
 
     def add_to_stream(self, code):
         self.stream.extend(self.code_table[code])
