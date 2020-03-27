@@ -3,7 +3,10 @@ import sys
 import time
 import pygame
 pygame.display.init()
-from gen import stritem_replace
+try:
+    from gen import stritem_replace
+except ImportError:
+    from dmgen.gen import stritem_replace
 
 VERBOSE = True
 
@@ -408,7 +411,7 @@ class Gif_LZW(object):
         self.stream = []
 
         self.data = iter(data)
-        self.get_next_code = self._get_next_code().__next__
+        self.get_next_code = self._get_next_code()
 
     def _get_next_code(self):
         value_buffer = 0
@@ -426,7 +429,7 @@ class Gif_LZW(object):
             yield value_buffer
 
     def parse_stream_data(self):
-        self.assure_clear_code(self.get_next_code())
+        self.assure_clear_code(next(self.get_next_code))
         while 1:
             response = self._parse_stream_data()
             # Fake tail recursion by returning 1.
@@ -439,12 +442,12 @@ class Gif_LZW(object):
         prev_code = self.clear_code
         # clear codes can appear AT ANY TIME
         while prev_code == self.clear_code:
-            prev_code = self.get_next_code()
+            prev_code = next(self.get_next_code)
             if prev_code == self.end_of_information_code:
                 return 0
         self.add_to_stream(prev_code)
         while 1:
-            code = self.get_next_code()
+            code = next(self.get_next_code)
             if code < self.next_code_index:
                 if code == self.clear_code:
                     self.reset_code_table()
