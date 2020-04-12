@@ -175,20 +175,21 @@ class Gif(object):
 
         packed = self.data[self.tell]
         self.tell += 1
-        # Bit 0 Is there a local color table
-        local_color_table = packed & 1
-        # Bit 1 Is the image interlaced
-        self.current_image.interlaced = packed & 2
-        # Bit 2 Is the local color table sorted
-        self.current_image.color_table_sorted = packed & 4
+        # Bits 0-2 The size of the local color table (see same bits for global color table)
+        color_table_entry_size = 1 + (packed & 7)  # (1 + 2 + 4)
+        color_table_entries = 1 << color_table_entry_size  # = 2 ** color_table_entry_size
+        # Bits 3-4 Reserved
+        # Bit 5 Is the local color table sorted
+        self.current_image.color_table_sorted = packed & 32
         if self.current_image.color_table_sorted and self.version == self.GIF87a:
             self.current_image.color_table_sorted = 0
             # raise GIFError('color table sorted cannot be set for %s'%self.GIF87a)
-        # Bits 3-4 Reserved
+        # Bit 6 Is the image interlaced
+            self.current_image.interlaced = packed & 64
+        # Bit 0 Is there a local color table
+        local_color_table = packed & 128
+
         if local_color_table:
-            # Bits 5-7 The size of the local color table (see same bits for global color table)
-            color_table_entry_size = 1 + (packed & 224)  # (32 + 64 + 128)
-            color_table_entries = 1 << color_table_entry_size  # = 2 ** color_table_entry_size
             self.current_image.color_table = [None] * color_table_entries
             self.parse_color_table(self.current_image.color_table)
         else:
