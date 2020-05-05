@@ -516,22 +516,24 @@ def fit_to(start_dims, dims=(1920, 1080)):
 def display_gif(gif, fitto=(1000, 1000), loop=True):
     pygame.display.init()
     base_s = pygame.Surface(gif.dims)
-    s = pygame.display.set_mode(fit_to(gif.dims, fitto))
+    display_dims = fit_to(gif.dims, fitto)
+    s = pygame.display.set_mode(display_dims)
+    s_rect = s.get_rect()
     if gif.background_color_index:
         base_s.fill(gif.global_color_table[gif.background_color_index])
         pygame.display.flip()
     c = pygame.time.Clock()
     while 1:
-        prev = None
+        frame_delay = 0
         for i in gif.images:
             if pygame.event.get(pygame.QUIT):
                 break
             base_s.blit(i.image, i.rect)
-            s.blit(pygame.transform.smoothscale(base_s, fit_to(i.image.get_size(), fitto)), s.get_rect())
-            if prev:
-                c.tick(100. / prev.frame_delay)
+            s.blit(pygame.transform.smoothscale(base_s, display_dims), s_rect)
+            if frame_delay:
+                c.tick(100. / frame_delay)
             pygame.display.flip()
-            prev = i
+            frame_delay = i.frame_delay
         else:
             if loop:
                 continue
