@@ -188,8 +188,8 @@ class Gif(object):
         if self.current_image.color_table_sorted and self.version == self.GIF87a:
             self.current_image.color_table_sorted = 0
         # Bit 6 Is the image interlaced
-            self.current_image.interlaced = packed & 64
-        # Bit 0 Is there a local color table
+        self.current_image.interlaced = packed & 64
+        # Bit 7 Is there a local color table
         local_color_table = packed & 128
 
         if local_color_table:
