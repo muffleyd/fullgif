@@ -10,6 +10,8 @@ VERBOSE = True
 
 # If the gif provides 0 as a frame delay, use this instead
 DEFAULT_FRAME_DELAY = 10
+# The minimum allowed frame delay.  Any non-zero lower frame delay will be set to this instead.
+MINIMUM_FRAME_DELAY = 1
 
 
 # between 0 and 65535
@@ -244,7 +246,11 @@ class Gif(object):
             )
         self.current_image.disposal_method = disposal_method
         # Bits 5-7 last 3 bits are reserved
+        # Set frame delay, or use the default if it's zero.
         self.current_image.frame_delay = ord16(self.data[self.tell:self.tell + 2]) or DEFAULT_FRAME_DELAY
+        # Enforce the minimum frame delay
+        if self.current_image.frame_delay < MINIMUM_FRAME_DELAY:
+            self.current_image.frame_delay = MINIMUM_FRAME_DELAY
         self.tell += 2
         if has_transparent_color_index:
             self.current_image.transparent_color_index = self.data[self.tell]
