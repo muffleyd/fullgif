@@ -546,3 +546,11 @@ def display_gif(gif, fitto=(1000, 1000), loop=True):
                 continue
         break
     pygame.display.quit()
+
+
+def explode_gif(gif, output_folder):
+    import os
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
+    for ind, i in enumerate(gif.images):
+        pygame.image.save(i.image, os.path.join(output_folder, '%d.png' % (ind + 1)))
