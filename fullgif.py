@@ -395,7 +395,7 @@ def main(f=None):
             g.set_delays(fps)
     for i in sys.argv[2:]:
         if '-O=' in i:  # force best, it's 2:25am fu
-            import opt_gif
+            from dmgen import opt_gif
             if VERBOSE:
                 print('optimizing . . .')
             opt_gif.main(sys.argv[1])
