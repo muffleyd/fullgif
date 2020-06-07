@@ -7,7 +7,6 @@ pygame.display.init()
 
 VERBOSE = True
 
-
 # If the gif provides 0 as a frame delay, use this instead
 DEFAULT_FRAME_DELAY = 10
 # The minimum allowed frame delay.  Any non-zero lower frame delay will be set to this instead.
@@ -132,7 +131,7 @@ class Gif(object):
 
     def parse_color_table(self, table):
         for i in range(len(table)):
-            table[i] = self.data[self.tell:self.tell+3]
+            table[i] = self.data[self.tell:self.tell + 3]
             self.tell += 3
 
     def parse_blocks(self):
@@ -150,18 +149,18 @@ class Gif(object):
                 self.parse_image_block()
                 self.images.append(self.current_image)
                 self.current_image = None
-            elif separator == 33: #89a '\x21' = 33
+            elif separator == 33:  # 89a '\x21' = 33
                 if self.version == self.GIF87a:
                     raise GIFError('87a gif has 89a block')
                 label = self.data[self.tell]
                 self.tell += 1
-                if label == 249: # '\xf9' = 249
+                if label == 249:  # '\xf9' = 249
                     self.parse_graphics_control_block()
-                elif label == 1: # '\x01' = 1
+                elif label == 1:  # '\x01' = 1
                     self.parse_plain_text_block()
-                elif label == 255: # '\xff' = 255
+                elif label == 255:  # '\xff' = 255
                     self.parse_application_block()
-                elif label == 254: # '\xfe' = 254
+                elif label == 254:  # '\xfe' = 254
                     self.parse_comment_block()
                 else:
                     raise GIFError('Unknown \\x21/33 block label %s' % label)
@@ -500,7 +499,7 @@ class Gif_LZW(object):
 
     def assure_clear_code(self, code):
         if code != self.clear_code:
-            raise GIFError('Expected clear code, got something else (%d != %d)' %(self.clear_code, code))
+            raise GIFError('Expected clear code, got something else (%d != %d)' % (self.clear_code, code))
 
 
 class GIFError(Exception):
