@@ -1,10 +1,11 @@
-from __future__ import print_function, division
 import sys
 import time
 import pygame
 from io import BytesIO
 pygame.display.init()
 from dmgen.gen import stritem_replace
+
+pygame.display.init()
 
 VERBOSE = True
 
@@ -26,24 +27,29 @@ def check_fpsval(value):
     return value
 
 
-##    print value
-##    if value < 1 or value > 65535 or not isinstance(value, int):
-##        raise ValueError('value must be int from 1 to 100')
 def check_delayval(value):
     if value > 65535:
         return 65535
     return value
 
 
-##    if value < 1 or value > 65535 or not isinstance(value, int):
-##        raise ValueError('value must be int from 1 to 65535')
-
-
 class Gif_Image(object):
     def __init__(self):
         self.comments = []
         self.graphics_extension_block = False
+        self.user_input_required = None
+        self.disposal_method = None
+        self.frame_delay = None
+        self.transparent_color_index = None
         self.image_block = None
+        self.image = None
+        self.rect = None
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+        self.data = None
+        self.color_table = None
 
     def clear_graphics_extension_block(self):
         self.graphics_extension_block = False
@@ -60,6 +66,7 @@ class Gif_Image(object):
             self.image.set_colorkey(self.color_table[self.transparent_color_index])
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
 
+
 # Counting bits starting at 0
 class Gif(object):
     """class to manipulate gifs"""
@@ -69,7 +76,7 @@ class Gif(object):
 
     def __init__(self, filename):
         if VERBOSE:
-            print('loading', (filename))
+            print('loading', filename)
             start_time = time.time()
         self.images = []
         self.filename = filename
@@ -111,7 +118,7 @@ class Gif(object):
         # The aspect ratio of a pixel. I'm going to ignore it.
         # the ratio defines width:height
         aspect_ratio_byte = self.data[12]
-        if (aspect_ratio_byte):
+        if aspect_ratio_byte:
             # This is the specific math it uses to define the ratio
             self.pixel_aspect_ratio = (aspect_ratio_byte + 15) / 64
         else:
@@ -443,6 +450,7 @@ class Gif_LZW(object):
                 return
 
     def _parse_stream_data(self):
+        table_immutable = False
         prev_code = self.clear_code
         # clear codes can appear AT ANY TIME
         while prev_code == self.clear_code:
@@ -463,13 +471,13 @@ class Gif_LZW(object):
             else:
                 K_code = prev_code
 
-            if not self.table_immutable:
+            if not table_immutable:
                 self.code_table[self.next_code_index] = bytes([*self.code_table[prev_code], self.code_table[K_code][0]])
                 self.next_code_index += 1
                 if self.next_code_index == self.next_code_table_grow:
                     if self.code_size == self.maximum_bit_size:
                         # Gifs aren't allowed to grow beyond this hard limit per code
-                        self.table_immutable = True
+                        table_immutable = True
                     else:
                         self.set_code_size(self.code_size + 1)
 
@@ -485,7 +493,6 @@ class Gif_LZW(object):
         # Track what the next index for a code in self.code_table will be.
         self.next_code_index = self.end_of_information_code + 1
         self.set_code_size(self.minimum_size + 1)
-        self.table_immutable = False
 
     def set_code_size(self, size):
         self.code_size = size
