@@ -214,8 +214,7 @@ class Gif(object):
             length = self.data[self.tell]
             self.tell += 1
             if length == 0:
-                parsed_data = self.parse_stream_data(minimum_lzw_code_size, data)
-                return parsed_data
+                return self.parse_stream_data(minimum_lzw_code_size, data)
             total += length
             data += self.data[self.tell:self.tell + length]
             self.tell += length
