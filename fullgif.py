@@ -104,7 +104,6 @@ class Gif(object):
         self.global_color_table_sorted = screen_descriptor & 8
         if self.global_color_table_sorted and self.version == self.GIF87a:
             self.global_color_table_sorted = 0
-            # raise GIFError('global color table sorted cannot be set for %s'%self.GIF87a)
         # bits 4-6 are the bits in an entry of the original color palette minus 1 (0-7 => 1-8)
         self.color_resolution = 1 + (screen_descriptor & 112)  # & (16 + 32 + 64)
         # bit 7 is whether the global color table exists
@@ -188,7 +187,6 @@ class Gif(object):
         self.current_image.color_table_sorted = packed & 32
         if self.current_image.color_table_sorted and self.version == self.GIF87a:
             self.current_image.color_table_sorted = 0
-            # raise GIFError('color table sorted cannot be set for %s'%self.GIF87a)
         # Bit 6 Is the image interlaced
             self.current_image.interlaced = packed & 64
         # Bit 0 Is there a local color table
