@@ -225,7 +225,7 @@ class Gif(object):
     def parse_stream_data(self, minimum_lzw_code_size, data):
         g = Gif_LZW(minimum_lzw_code_size, data)
         g.parse_stream_data()
-        return g.stream.getbuffer()
+        return g.stream
 
     def parse_graphics_control_block(self):
         block_size = self.data[self.tell]
@@ -416,7 +416,7 @@ class Gif_LZW(object):
         self.code_table = []
 
         self.reset_code_table()
-        self.stream = BytesIO()
+        self.stream = bytearray()
 
         self.data = data
         self.get_next_code = self._get_next_code()
@@ -457,7 +457,7 @@ class Gif_LZW(object):
             prev_code = next(self.get_next_code)
             if prev_code == self.end_of_information_code:
                 return 0
-        self.stream.write(self.code_table[prev_code])
+        self.stream += self.code_table[prev_code]
         while 1:
             code = next(self.get_next_code)
             if code < self.next_code_index:
@@ -481,7 +481,7 @@ class Gif_LZW(object):
                     else:
                         self.set_code_size(self.code_size + 1)
 
-            self.stream.write(self.code_table[code])
+            self.stream += self.code_table[code]
             prev_code = code
 
     def reset_code_table(self):
