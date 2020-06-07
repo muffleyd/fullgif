@@ -1,8 +1,6 @@
 import sys
 import time
 import pygame
-from io import BytesIO
-pygame.display.init()
 from dmgen.gen import stritem_replace
 
 pygame.display.init()
@@ -209,7 +207,7 @@ class Gif(object):
 
     def parse_image_data(self):
         total = 0
-        data = BytesIO()
+        data = bytearray()
         minimum_lzw_code_size = self.data[self.tell]
         self.tell += 1
         while 1:
@@ -219,7 +217,7 @@ class Gif(object):
                 parsed_data = self.parse_stream_data(minimum_lzw_code_size, data)
                 return parsed_data
             total += length
-            data.write(self.data[self.tell:self.tell + length])
+            data += self.data[self.tell:self.tell + length]
             self.tell += length
 
     def parse_stream_data(self, minimum_lzw_code_size, data):
@@ -426,7 +424,7 @@ class Gif_LZW(object):
         value_buffer_bits = 0
         bit_ands = self.bit_ands
         code_size = self.code_size
-        for byte in self.data.getbuffer():
+        for byte in self.data:
             if value_buffer_bits >= code_size:
                 value = value_buffer & bit_ands[code_size]
                 value_buffer >>= code_size
