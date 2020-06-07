@@ -58,10 +58,13 @@ class Gif_Image(object):
         self.frame_delay = None
         self.transparent_color_index = None
 
+    def set_decompressed_data(self, data):
+        self.decompressed_data = data
+        self.data = None
+
     def decompress_data(self):
         if not self.decompressed_data and self.data:
-            self.decompressed_data = self.data.parse_stream_data()
-            self.data = None
+            self.set_decompressed_data(self.data.parse_stream_data())
 
     def make_pygame_surface(self):
         if not self.decompressed_data:
@@ -431,7 +434,6 @@ class Gif_LZW(object):
         self.stream = bytearray()
 
         self.data = data
-        self.get_next_code = self._get_next_code()
 
     def _get_next_code(self):
         value_buffer = 0
@@ -447,11 +449,9 @@ class Gif_LZW(object):
                 code_size = self.code_size
             value_buffer += (byte << value_buffer_bits)
             value_buffer_bits += 8
-        # Some gifs have the end of information code in full before the expected number of bits have been read
-        if value_buffer == self.end_of_information_code:
-            yield value_buffer
 
     def parse_stream_data(self):
+        self.get_next_code = self._get_next_code()
         self.assure_clear_code(next(self.get_next_code))
         while 1:
             response = self._parse_stream_data()
@@ -568,3 +568,54 @@ def explode_gif(gif, output_folder):
         os.mkdir(output_folder)
     for ind, i in enumerate(gif.images):
         pygame.image.save(i.image, os.path.join(output_folder, '%d.png' % (ind + 1)))
+
+# Threaded decompression, doesn't speed up with the python implementation of LZW.
+def decompress_gif(g):
+    from dmgen import threaded_worker, gen, cores
+    with gen.timer():
+        with threaded_worker.threaded_worker(threads=max(1, cores.CORES - 1)) as tw:
+            for i in g.images:
+                tw.put(i.decompress_data)
+            for i in g.images:
+                tw.get()
+
+
+# Multiprocessed decompression, dose speed up with the python implementation of LZW.
+def decompress_gif_mp(g):
+    from dmgen import gen, cores
+    import multiprocessing as mp
+    q_put = mp.Queue()
+    q_get = mp.Queue()
+    args = (q_put, q_get)
+    processes = []
+    with gen.timer():
+        # Start the processes.
+        for i in range(max(1, cores.CORES - 1)):
+            p = mp.Process(target=atomic_decompress, args=args)
+            p.daemon = True
+            p.start()
+            processes.append(p)
+        # Put the data.
+        for index, data in enumerate(g.images):
+            q_put.put((index, data))
+        # Put the data to end the processes.
+        for i in range(len(processes)):
+            q_put.put(0)
+        # Get the data and set on the objects.
+        for i in g.images:
+            index, data = q_get.get()
+            g.images[index].set_decompressed_data(data)
+
+
+# Multiprocess target function for decompression.
+def atomic_decompress(q_get, q_put):
+    while 1:
+        # Get the data.
+        data = q_get.get()
+        # End process if no value.
+        if not data:
+            return
+        # Run the function and return the data.
+        index, gif_img = data
+        gif_img.decompress_data()
+        q_put.put((index, gif_img.decompressed_data))
