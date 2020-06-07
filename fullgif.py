@@ -62,7 +62,7 @@ class Gif_Image(object):
         self.image = pygame.image.frombuffer(self.data, (self.width, self.height), 'P')
         self.image.set_palette(self.color_table)
         self.image = self.image.convert(24)
-        if self.transparent_color_index:
+        if self.transparent_color_index is not None:
             self.image.set_colorkey(self.color_table[self.transparent_color_index])
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
 
