@@ -48,6 +48,7 @@ class Gif_Image(object):
         self.width = None
         self.height = None
         self.data = None
+        self.decompressed_data = None
         self.color_table = None
 
     def clear_graphics_extension_block(self):
@@ -57,8 +58,15 @@ class Gif_Image(object):
         self.frame_delay = None
         self.transparent_color_index = None
 
+    def decompress_data(self):
+        if not self.decompressed_data and self.data:
+            self.decompressed_data = self.data.parse_stream_data()
+            self.data = None
+
     def make_pygame_surface(self):
-        self.image = pygame.image.frombuffer(self.data, (self.width, self.height), 'P')
+        if not self.decompressed_data:
+            self.decompress_data()
+        self.image = pygame.image.frombuffer(self.decompressed_data, (self.width, self.height), 'P')
         self.image.set_palette(self.color_table)
         self.image = self.image.convert(24)
         if self.transparent_color_index is not None:
@@ -73,10 +81,12 @@ class Gif(object):
     GIF87a = b'GIF87a'
     GIF89a = b'GIF89a'
 
-    def __init__(self, filename):
+    def __init__(self, filename, decompress=False, make_surfaces=False):
         if VERBOSE:
             print('loading', filename)
             start_time = time.time()
+        self.decompress = decompress
+        self.make_surfaces = make_surfaces
         self.images = []
         self.filename = filename
         self.data = data = open(filename, 'rb').read()
@@ -200,9 +210,12 @@ class Gif(object):
             # Use the global color table if there's no local one
             self.current_image.color_table = self.global_color_table
         self.current_image.data = self.parse_image_data()
+        if self.decompress:
+            self.current_image.decompress_data()
         # TODO parse the data, convert to x/y lines, handle image dims / xy position,
         #  animation and overwriting/transparency
-        self.current_image.make_pygame_surface()
+        if self.make_surfaces:
+            self.current_image.make_pygame_surface()
 
     def parse_image_data(self):
         total = 0
@@ -213,15 +226,14 @@ class Gif(object):
             length = self.data[self.tell]
             self.tell += 1
             if length == 0:
-                return self.parse_stream_data(minimum_lzw_code_size, data)
+                return Gif_LZW(minimum_lzw_code_size, data)
             total += length
             data += self.data[self.tell:self.tell + length]
             self.tell += length
 
     def parse_stream_data(self, minimum_lzw_code_size, data):
         g = Gif_LZW(minimum_lzw_code_size, data)
-        g.parse_stream_data()
-        return g.stream
+        return g.parse_stream_data()
 
     def parse_graphics_control_block(self):
         block_size = self.data[self.tell]
@@ -447,7 +459,8 @@ class Gif_LZW(object):
             if response == 1:
                 continue
             else:
-                return
+                break
+        return self.stream
 
     def _parse_stream_data(self):
         table_immutable = False
@@ -532,6 +545,8 @@ def display_gif(gif, fitto=(1000, 1000), loop=True):
     while 1:
         frame_delay = 0
         for i in gif.images:
+            if not i.image:
+                i.make_pygame_surface()
             if pygame.event.get(pygame.QUIT):
                 break
             base_s.blit(i.image, i.rect)
