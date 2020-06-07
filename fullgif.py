@@ -468,7 +468,7 @@ class Gif_LZW(object):
                 K_code = prev_code
 
             if not table_immutable:
-                self.code_table[self.next_code_index] = bytes([*self.code_table[prev_code], self.code_table[K_code][0]])
+                self.code_table[self.next_code_index] = self.code_table[prev_code] + bytes([self.code_table[K_code][0]])
                 self.next_code_index += 1
                 if self.next_code_index == self.next_code_table_grow:
                     if self.code_size == self.maximum_bit_size:
