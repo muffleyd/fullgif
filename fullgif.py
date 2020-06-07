@@ -455,8 +455,7 @@ class Gif_LZW(object):
             if prev_code == self.end_of_information_code:
                 return 0
         self.stream += self.code_table[prev_code]
-        while 1:
-            code = next(self.get_next_code)
+        for code in self.get_next_code:
             if code < self.next_code_index:
                 if code == self.clear_code:
                     self.reset_code_table()
