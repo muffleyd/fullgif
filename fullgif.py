@@ -543,7 +543,10 @@ class Gif_LZW(object):
         prev_code = clear_code
         # clear codes can appear AT ANY TIME
         while prev_code == clear_code:
-            prev_code = next(self.get_next_code)
+            try:
+                prev_code = next(self.get_next_code)
+            except StopIteration:
+                return 0
             if prev_code == end_of_information_code:
                 return 0
         self.stream += code_table[prev_code]
