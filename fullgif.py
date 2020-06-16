@@ -70,6 +70,15 @@ class Gif_Image(object):
     def make_pygame_surface(self):
         if not self.decompressed_data:
             self.decompress_data()
+        # If the data is too short, append transparent color indexes, or default to 0, until it's the right length.
+        if len(self.decompressed_data) < self.width * self.height:
+            if self.transparent_color_index is None:
+                color_index = 0
+            else:
+                color_index = self.transparent_color_index
+            self.decompressed_data += bytes(
+                [color_index] * (self.width * self.height - len(self.decompressed_data))
+            )
         self.image = pygame.image.frombuffer(self.decompressed_data, (self.width, self.height), 'P')
         self.image.set_palette(self.color_table)
         self.image = self.image.convert(24)
