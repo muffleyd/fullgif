@@ -120,9 +120,9 @@ class Gif(object):
         if self.global_color_table_sorted and self.version == self.GIF87a:
             self.global_color_table_sorted = 0
         # bits 4-6 are the bits in an entry of the original color palette minus 1 (0-7 => 1-8)
-        self.color_resolution = 1 + (screen_descriptor & 112)  # & (16 + 32 + 64)
+        self.color_resolution = 1 + (screen_descriptor >> 4 & 7)  # bitshift to go to bits 0-2, then (1 + 2 + 4)
         # bit 7 is whether the global color table exists
-        self.global_color_table_exists = screen_descriptor & 128
+        self.global_color_table_exists = bool(screen_descriptor & 128)
 
         # The index in the global color table (if it exists) for the background of the screen
         self.background_color_index = self.data[11]
@@ -203,9 +203,9 @@ class Gif(object):
         if self.current_image.color_table_sorted and self.version == self.GIF87a:
             self.current_image.color_table_sorted = 0
         # Bit 6 Is the image interlaced
-        self.current_image.interlaced = packed & 64
+        self.current_image.interlaced = bool(packed & 64)
         # Bit 7 Is there a local color table
-        local_color_table = packed & 128
+        local_color_table = bool(packed & 128)
 
         if local_color_table:
             self.current_image.color_table = [None] * color_table_entries
