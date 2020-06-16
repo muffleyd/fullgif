@@ -7,6 +7,7 @@ pygame.display.init()
 
 VERBOSE = False
 USABLE = True
+ENFORCE_VERSION = False
 
 # If the gif provides 0 as a frame delay, use this instead
 DEFAULT_FRAME_DELAY = 10
@@ -173,7 +174,7 @@ class Gif(object):
                 self.images.append(self.current_image)
                 self.current_image = None
             elif separator == 33:  # 89a '\x21' = 33
-                if self.version == self.GIF87a:
+                if ENFORCE_VERSION and self.version == self.GIF87a:
                     raise GIFError('87a gif has 89a block')
                 label = self.data[self.tell]
                 self.tell += 1
@@ -209,7 +210,8 @@ class Gif(object):
         # Bits 3-4 Reserved
         # Bit 5 Is the local color table sorted
         self.current_image.color_table_sorted = packed & 32
-        if self.current_image.color_table_sorted and self.version == self.GIF87a:
+        # Sorted color table isn't allowed in 87a
+        if self.current_image.color_table_sorted and ENFORCE_VERSION and self.version == self.GIF87a:
             self.current_image.color_table_sorted = 0
         # Bit 6 Is the image interlaced
         self.current_image.interlaced = bool(packed & 64)
