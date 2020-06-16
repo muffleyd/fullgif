@@ -82,6 +82,20 @@ class Gif_Image(object):
                 [color_index] * (self.width * self.height - len(self.decompressed_data))
             )
         self.image = pygame.image.frombuffer(self.decompressed_data, (self.width, self.height), 'P')
+        if self.transparent_color_index is not None:
+            # We're using colorkey transparency, so if the transparent color appears elsewhere in the color table
+            #  it could mean the color appears in other pixels.  Find an unused color value.
+            if self.color_table.count(self.color_table[self.transparent_color_index]) > 1:
+                for b in range(256):
+                    transparent = bytes((0, 0, b))
+                    if not self.color_table.count(transparent):
+                        break
+                else:
+                    # Only 256 possible values in the color table, so if we're here then this one can't exist in it.
+                    transparent = bytes((0, 1, 0))
+                # The color table could be the same object as the global color table, so make a copy.
+                self.color_table = self.color_table[:]
+                self.color_table[self.transparent_color_index] = transparent
         self.image.set_palette(self.color_table)
         self.image = self.image.convert(24)
         if self.transparent_color_index is not None:
