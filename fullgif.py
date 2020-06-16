@@ -457,7 +457,8 @@ class Gif_LZW(object):
 
     def parse_stream_data(self):
         self.get_next_code = self._get_next_code()
-        self.assure_clear_code(next(self.get_next_code))
+        # Some gifs don't respect this part of the standard, oh well.
+        # self.assure_clear_code(next(self.get_next_code))
         while 1:
             response = self._parse_stream_data()
             # Fake tail recursion by returning 1.
