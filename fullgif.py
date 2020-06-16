@@ -8,6 +8,7 @@ pygame.display.init()
 VERBOSE = False
 USABLE = True
 ENFORCE_VERSION = False
+COERCE_DISPOSAL_METHOD = True
 
 # If the gif provides 0 as a frame delay, use this instead
 DEFAULT_FRAME_DELAY = 10
@@ -267,9 +268,12 @@ class Gif(object):
         # Bits 2-4 Gives one of 4 methods to dispose of the previous image
         disposal_method = packed_bit >> 2 & 7  # bitshift to go to bits 0-2, then (1 + 2 + 4)
         if disposal_method > 3:
-            raise GIFError(
-                'Previous image disposal method is invalid (expected 0, 1, 2, or 3, got %d' % disposal_method
-            )
+            if COERCE_DISPOSAL_METHOD:
+                disposal_method = 0
+            else:
+                raise GIFError(
+                    'Previous image disposal method is invalid (expected 0, 1, 2, or 3, got %d' % disposal_method
+                )
         self.current_image.disposal_method = disposal_method
         # Bits 5-7 last 3 bits are reserved
         # Set frame delay, or use the default if it's zero.
