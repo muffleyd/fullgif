@@ -562,6 +562,8 @@ def display_gif(gif, fitto=(1000, 1000), loop=True):
             frame_delay = i.frame_delay
         else:
             if loop:
+                if frame_delay:
+                    c.tick(100. / frame_delay)
                 continue
         break
     pygame.display.quit()
@@ -574,6 +576,7 @@ def explode_gif(gif, output_folder):
     for ind, i in enumerate(gif.images):
         pygame.image.save(i.image, os.path.join(output_folder, '%d.png' % (ind + 1)))
 
+
 # Threaded decompression, doesn't speed up with the python implementation of LZW.
 def decompress_gif(g):
     from dmgen import threaded_worker, gen, cores
@@ -585,7 +588,7 @@ def decompress_gif(g):
                 tw.get()
 
 
-# Multiprocessed decompression, dose speed up with the python implementation of LZW.
+# Multiprocessed decompression, does speed up with the python implementation of LZW.
 def decompress_gif_mp(g):
     from dmgen import gen, cores
     import multiprocessing as mp
@@ -595,7 +598,7 @@ def decompress_gif_mp(g):
     processes = []
     with gen.timer():
         # Start the processes.
-        for i in range(max(1, cores.CORES - 1)):
+        for i in range(max(1, cores.CORES)):
             p = mp.Process(target=atomic_decompress, args=args)
             p.daemon = True
             p.start()
