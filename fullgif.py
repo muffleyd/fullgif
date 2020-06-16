@@ -5,7 +5,8 @@ from dmgen.gen import stritem_replace
 
 pygame.display.init()
 
-VERBOSE = True
+VERBOSE = False
+USABLE = True
 
 # If the gif provides 0 as a frame delay, use this instead
 DEFAULT_FRAME_DELAY = 10
@@ -463,6 +464,7 @@ class Gif_LZW(object):
         return self.stream
 
     def _parse_stream_data(self):
+        next_code_index = self.next_code_index
         table_immutable = False
         prev_code = self.clear_code
         # clear codes can appear AT ANY TIME
@@ -472,7 +474,7 @@ class Gif_LZW(object):
                 return 0
         self.stream += self.code_table[prev_code]
         for code in self.get_next_code:
-            if code < self.next_code_index:
+            if code < next_code_index:
                 if code == self.clear_code:
                     self.reset_code_table()
                     # No tail recursion, so here we are. Wipe out prev_code like this.
@@ -484,9 +486,9 @@ class Gif_LZW(object):
                 K_code = prev_code
 
             if not table_immutable:
-                self.code_table[self.next_code_index] = self.code_table[prev_code] + bytes([self.code_table[K_code][0]])
-                self.next_code_index += 1
-                if self.next_code_index == self.next_code_table_grow:
+                self.code_table[next_code_index] = self.code_table[prev_code] + bytes([self.code_table[K_code][0]])
+                next_code_index += 1
+                if next_code_index == self.next_code_table_grow:
                     if self.code_size == self.maximum_bit_size:
                         # Gifs aren't allowed to grow beyond this hard limit per code
                         table_immutable = True
