@@ -52,6 +52,7 @@ class Gif_Image(object):
         self.height = None
         self.data = None
         self.decompressed_data = None
+        self.interlaced = None
         self.color_table = None
 
     def clear_graphics_extension_block(self):
@@ -69,7 +70,36 @@ class Gif_Image(object):
         if not self.decompressed_data and self.data:
             self.set_decompressed_data(self.data.parse_stream_data())
 
+    def deinterlace(self):
+        # The rows of an Interlaced images are arranged in the following order:
+        #       Group 1 : Every 8th. row, starting with row 0.
+        #       Group 2 : Every 8th. row, starting with row 4.
+        #       Group 3 : Every 4th. row, starting with row 2.
+        #       Group 4 : Every 2nd. row, starting with row 1.
+        new_data = bytearray(len(self.decompressed_data))
+        original_row = 0
+        for new_row in range(0, self.height, 8):
+            self.add_deinterlaced_row(new_row, original_row, new_data)
+            original_row += 1
+        for new_row in range(4, self.height, 8):
+            self.add_deinterlaced_row(new_row, original_row, new_data)
+            original_row += 1
+        for new_row in range(2, self.height, 4):
+            self.add_deinterlaced_row(new_row, original_row, new_data)
+            original_row += 1
+        for new_row in range(1, self.height, 2):
+            self.add_deinterlaced_row(new_row, original_row, new_data)
+            original_row += 1
+        self.decompressed_data = new_data[:len(self.decompressed_data)]
+
+    def add_deinterlaced_row(self, new_row, original_row, new_data):
+        # Copy the data over from the original data one row at a time.
+        new_data[new_row * self.width:new_row * self.width + self.width] = \
+            self.decompressed_data[original_row * self.width:original_row * self.width + self.width]
+
     def make_pygame_surface(self):
+        if self.image:
+            return
         if not self.decompressed_data:
             self.decompress_data()
         # If the data is too short, append transparent color indexes, or default to 0, until it's the right length.
@@ -81,6 +111,8 @@ class Gif_Image(object):
             self.decompressed_data += bytes(
                 [color_index] * (self.width * self.height - len(self.decompressed_data))
             )
+        if self.interlaced:
+            self.deinterlace()
         self.image = pygame.image.frombuffer(self.decompressed_data, (self.width, self.height), 'P')
         if self.transparent_color_index is not None:
             # We're using colorkey transparency, so if the transparent color appears elsewhere in the color table
