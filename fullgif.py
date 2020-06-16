@@ -366,6 +366,8 @@ class Gif(object):
     def parse_comment_block(self):
         comment_length = self.data[self.tell]
         self.tell += 1
+        if not comment_length:
+            return
         comment = self.data[self.tell:self.tell + comment_length]
         self.current_image.comments.append(comment)
         self.tell += comment_length
