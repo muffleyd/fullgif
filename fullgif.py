@@ -465,6 +465,7 @@ class Gif_LZW(object):
 
     def _parse_stream_data(self):
         next_code_index = self.next_code_index
+        code_table = self.code_table
         table_immutable = False
         prev_code = self.clear_code
         # clear codes can appear AT ANY TIME
@@ -472,7 +473,7 @@ class Gif_LZW(object):
             prev_code = next(self.get_next_code)
             if prev_code == self.end_of_information_code:
                 return 0
-        self.stream += self.code_table[prev_code]
+        self.stream += code_table[prev_code]
         for code in self.get_next_code:
             if code < next_code_index:
                 if code == self.clear_code:
@@ -486,7 +487,7 @@ class Gif_LZW(object):
                 K_code = prev_code
 
             if not table_immutable:
-                self.code_table[next_code_index] = self.code_table[prev_code] + bytes([self.code_table[K_code][0]])
+                code_table[next_code_index] = code_table[prev_code] + bytes([code_table[K_code][0]])
                 next_code_index += 1
                 if next_code_index == self.next_code_table_grow:
                     if self.code_size == self.maximum_bit_size:
@@ -495,7 +496,7 @@ class Gif_LZW(object):
                     else:
                         self.set_code_size(self.code_size + 1)
 
-            self.stream += self.code_table[code]
+            self.stream += code_table[code]
             prev_code = code
 
     def reset_code_table(self):
