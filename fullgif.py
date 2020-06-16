@@ -41,7 +41,7 @@ class Gif_Image(object):
         self.graphics_extension_block = False
         self.user_input_required = None
         self.disposal_method = None
-        self.frame_delay = None
+        self.frame_delay = DEFAULT_FRAME_DELAY
         self.transparent_color_index = None
         self.image_block = None
         self.image = None
@@ -54,6 +54,12 @@ class Gif_Image(object):
         self.decompressed_data = None
         self.interlaced = None
         self.color_table = None
+
+    def set_frame_delay(self, frame_delay):
+        self.frame_delay = frame_delay or DEFAULT_FRAME_DELAY
+        # Enforce the minimum frame delay
+        if self.frame_delay < MINIMUM_FRAME_DELAY:
+            self.frame_delay = MINIMUM_FRAME_DELAY
 
     def clear_graphics_extension_block(self):
         self.graphics_extension_block = False
@@ -323,10 +329,7 @@ class Gif(object):
         self.current_image.disposal_method = disposal_method
         # Bits 5-7 last 3 bits are reserved
         # Set frame delay, or use the default if it's zero.
-        self.current_image.frame_delay = ord16(self.data[self.tell:self.tell + 2]) or DEFAULT_FRAME_DELAY
-        # Enforce the minimum frame delay
-        if self.current_image.frame_delay < MINIMUM_FRAME_DELAY:
-            self.current_image.frame_delay = MINIMUM_FRAME_DELAY
+        self.current_image.set_frame_delay(ord16(self.data[self.tell:self.tell + 2]))
         self.tell += 2
         if has_transparent_color_index:
             self.current_image.transparent_color_index = self.data[self.tell]
