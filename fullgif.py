@@ -353,12 +353,10 @@ class Gif(object):
     def parse_application_block(self):
         self.tell += 12
         data_length = self.data[self.tell]
-        while 1:
+        while data_length:
             self.tell += data_length + 1
             data_length = self.data[self.tell]
-            if data_length == 0:
-                self.tell += 1
-                return
+        self.tell += 1
 
     def parse_comment_block(self):
         comment_length = self.data[self.tell]
