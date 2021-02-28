@@ -501,7 +501,7 @@ class Gif_LZW(object):
 
         # The code_table will be reset to the inside of reset_code_table.
         self.default_code_table = [None] * (1 << self.maximum_bit_size)
-        self.default_code_table[:1 << minimum_size] = [bytes([i]) for i in range(1 << minimum_size)]
+        self.default_code_table[:1 << minimum_size] = [bytes((i,)) for i in range(1 << minimum_size)]
 
         self.reset_code_table()
         self.stream = bytearray()
@@ -578,14 +578,14 @@ class Gif_LZW(object):
             prev_code = code
 
     def reset_code_table(self):
-        self.code_table[:] = self.default_code_table[:]
+        self.code_table[:] = self.default_code_table
         # Track what the next index for a code in self.code_table will be.
         self.next_code_index = self.end_of_information_code + 1
         self.set_code_size(self.minimum_size + 1)
 
     def set_code_size(self, size):
         self.code_size = size
-        self.next_code_table_grow = (1 << self.code_size)
+        self.next_code_table_grow = 1 << size
 
     def assure_clear_code(self, code):
         if code != self.clear_code:
