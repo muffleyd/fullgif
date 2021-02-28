@@ -200,15 +200,15 @@ class Gif(object):
             self.pixel_aspect_ratio = 1
         self.tell = 13
         if self.global_color_table_exists:
-            self.global_color_table = [None] * global_color_table_entries
-            self.parse_color_table(self.global_color_table)
+            self.global_color_table = self.parse_color_table(global_color_table_entries)
         else:
             self.global_color_table = []
 
-    def parse_color_table(self, table):
-        for i in range(len(table)):
-            table[i] = self.data[self.tell:self.tell + 3]
-            self.tell += 3
+    def parse_color_table(self, table_entries):
+        bytes = 3 * table_entries
+        data = self.data[self.tell:self.tell + bytes]
+        self.tell += bytes
+        return [data[i:i+3] for i in range(0, bytes, 3)]
 
     def parse_blocks(self):
         while 1:
@@ -277,8 +277,7 @@ class Gif(object):
         local_color_table = bool(packed & 128)
 
         if local_color_table:
-            self.current_image.color_table = [None] * color_table_entries
-            self.parse_color_table(self.current_image.color_table)
+            self.current_image.color_table = self.parse_color_table(color_table_entries)
         else:
             # Use the global color table if there's no local one
             self.current_image.color_table = self.global_color_table
