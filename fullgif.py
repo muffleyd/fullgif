@@ -77,25 +77,22 @@ class Gif_Image(object):
             self.set_decompressed_data(self.data.parse_stream_data())
 
     def deinterlace(self):
-        # The rows of an Interlaced images are arranged in the following order:
-        #       Group 1 : Every 8th. row, starting with row 0.
-        #       Group 2 : Every 8th. row, starting with row 4.
-        #       Group 3 : Every 4th. row, starting with row 2.
-        #       Group 4 : Every 2nd. row, starting with row 1.
+        # The rows of an Interlaced image are arranged in the following order:
+        #       Group 1 : Every 8th row, starting with row 0.
+        #       Group 2 : Every 8th row, starting with row 4.
+        #       Group 3 : Every 4th row, starting with row 2.
+        #       Group 4 : Every 2nd row, starting with row 1.
         new_data = bytearray(len(self.decompressed_data))
         original_row = 0
-        for new_row in range(0, self.height, 8):
-            self.add_deinterlaced_row(new_row, original_row, new_data)
-            original_row += 1
-        for new_row in range(4, self.height, 8):
-            self.add_deinterlaced_row(new_row, original_row, new_data)
-            original_row += 1
-        for new_row in range(2, self.height, 4):
-            self.add_deinterlaced_row(new_row, original_row, new_data)
-            original_row += 1
-        for new_row in range(1, self.height, 2):
-            self.add_deinterlaced_row(new_row, original_row, new_data)
-            original_row += 1
+        for interlace_range in (
+                range(0, self.height, 8),
+                range(4, self.height, 8),
+                range(2, self.height, 4),
+                range(1, self.height, 2)
+        ):
+            for new_row in interlace_range:
+                self.add_deinterlaced_row(new_row, original_row, new_data)
+                original_row += 1
         self.decompressed_data = new_data[:len(self.decompressed_data)]
 
     def add_deinterlaced_row(self, new_row, original_row, new_data):
