@@ -145,7 +145,7 @@ class Gif(object):
     GIF87a = b'GIF87a'
     GIF89a = b'GIF89a'
 
-    def __init__(self, filename, decompress=False, make_surfaces=False):
+    def __init__(self, filename, decompress=False, make_surfaces=False, data=None):
         if VERBOSE:
             print('loading', filename)
             start_time = time.time()
@@ -153,7 +153,9 @@ class Gif(object):
         self.make_surfaces = make_surfaces
         self.images = []
         self.filename = filename
-        self.data = data = open(filename, 'rb').read()
+        if not data:
+            data = open(filename, 'rb').read()
+        self.data = data
         self.version = data[:6]
         assert self.version in (self.GIF87a, self.GIF89a)
         # Where in self.data is the next piece of data, if variability is needed.
