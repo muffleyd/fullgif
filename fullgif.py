@@ -351,24 +351,24 @@ class Gif(object):
 
     # Ignored
     def parse_application_block(self):
+        # Block header indicates this is 11 bytes long, so jump forward this 1 byte and those 11.
         self.tell += 12
         data_length = self.data[self.tell]
+        # Process sub-blocks until a 0.
         while data_length:
             self.tell += data_length + 1
             data_length = self.data[self.tell]
         self.tell += 1
 
     def parse_comment_block(self):
-        comment_length = self.data[self.tell]
-        self.tell += 1
-        if not comment_length:
-            return
-        comment = self.data[self.tell:self.tell + comment_length]
-        self.current_image.comments.append(comment)
-        self.tell += comment_length
-        if self.data[self.tell] != 0:
-            raise GIFError('Comment block terminator not found')
-        self.tell += 1
+        # Process sub-blocks until a 0.
+        while 1:
+            comment_length = self.data[self.tell]
+            self.tell += 1
+            if not comment_length:
+                break
+            self.current_image.comments.append(self.data[self.tell:self.tell + comment_length])
+            self.tell += comment_length
 
     def get_delays(self):
         for i in self.frames:
