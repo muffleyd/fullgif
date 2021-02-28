@@ -281,6 +281,10 @@ class Gif(object):
         else:
             # Use the global color table if there's no local one
             self.current_image.color_table = self.global_color_table
+        # Find cases where the transparent index is out of bounds and force it off.
+        # TODO See if there's a usual way to handle this.
+        if self.current_image.transparent_color_index is not None and self.current_image.transparent_color_index > len(self.current_image.color_table):
+            self.current_image.transparent_color_index = None
         self.current_image.data = self.parse_image_data()
         if self.decompress:
             self.current_image.decompress_data()
