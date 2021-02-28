@@ -210,7 +210,11 @@ class Gif(object):
 
     def parse_blocks(self):
         while 1:
-            separator = self.data[self.tell]
+            try:
+                separator = self.data[self.tell]
+            # Some gifs don't include the end of file char.
+            except IndexError:
+                break
             self.tell += 1
             # '\x3b' = 59 is the end of file char
             if separator == 59:
