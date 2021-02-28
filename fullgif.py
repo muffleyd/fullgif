@@ -290,18 +290,22 @@ class Gif(object):
             self.current_image.make_pygame_surface()
 
     def parse_image_data(self):
-        total = 0
-        data = bytearray()
-        minimum_lzw_code_size = self.data[self.tell]
-        self.tell += 1
+        # Make these local due to the tight loops.
+        tell = self.tell
+        data = self.data
+        lzw_data = bytearray()
+        minimum_lzw_code_size = data[tell]
+        tell += 1
         while 1:
-            length = self.data[self.tell]
-            self.tell += 1
-            if length == 0:
-                return Gif_LZW(minimum_lzw_code_size, data)
-            total += length
-            data += self.data[self.tell:self.tell + length]
-            self.tell += length
+            length = data[tell]
+            if not length:
+                break
+            # This tell usage is backwards from the norm so we can do a single assignment to self.tell.
+            tell += length + 1
+            lzw_data += data[tell - length:tell]
+        # Re-assign to self.tell and add 1 from the length check that was just done.
+        self.tell = tell + 1
+        return Gif_LZW(minimum_lzw_code_size, lzw_data)
 
     def parse_stream_data(self, minimum_lzw_code_size, data):
         g = Gif_LZW(minimum_lzw_code_size, data)
