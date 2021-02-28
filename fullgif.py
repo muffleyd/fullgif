@@ -501,15 +501,13 @@ class Gif_LZW(object):
         self.minimum_size = minimum_size
         self.clear_code = 1 << self.minimum_size
         self.end_of_information_code = self.clear_code + 1
-        self.code_table = []
 
         # The code_table will be reset to the inside of reset_code_table.
+        self.code_table = []
         self.default_code_table = [None] * (1 << self.maximum_bit_size)
         self.default_code_table[:1 << minimum_size] = [bytes((i,)) for i in range(1 << minimum_size)]
 
-        self.reset_code_table()
         self.stream = bytearray()
-
         self.data = data
 
     def _get_next_code(self):
@@ -528,11 +526,10 @@ class Gif_LZW(object):
             value_buffer_bits += 8
 
     def parse_stream_data(self):
-        self.get_next_code = self._get_next_code()
-        # Some gifs don't respect this part of the standard, oh well.
-        # self.assure_clear_code(next(self.get_next_code))
+        self.reset_code_table()
+        get_next_code = self._get_next_code()
         while 1:
-            response = self._parse_stream_data()
+            response = self._parse_stream_data(get_next_code)
             # Fake tail recursion by returning 1.
             if response == 1:
                 continue
@@ -540,24 +537,30 @@ class Gif_LZW(object):
                 break
         return self.stream
 
-    def _parse_stream_data(self):
+    def _parse_stream_data(self, get_next_code):
+        # Localize variable due to the loop.
         next_code_index = self.next_code_index
         code_table = self.code_table
         clear_code = self.clear_code
         end_of_information_code = self.end_of_information_code
+        # The code table is only allowed to grow to a specific size.
         table_immutable = False
         prev_code = clear_code
-        # clear codes can appear AT ANY TIME
+        # Some gifs don't respect the standard, so we don't ensure there's at least one clear code.
+        # The while loop is because clear codes can appear at any time, even right after another one.
         while prev_code == clear_code:
             try:
-                prev_code = next(self.get_next_code)
+                prev_code = next(get_next_code)
             except StopIteration:
                 return 0
             if prev_code == end_of_information_code:
                 return 0
+        # The first code must be in the initial code table.
         self.stream += code_table[prev_code]
-        for code in self.get_next_code:
+        for code in get_next_code:
+            # If it's going to reference an existing code.
             if code < next_code_index:
+                # Handle clear code and end of info code.
                 if code == clear_code:
                     self.reset_code_table()
                     # No tail recursion, so here we are. Wipe out prev_code like this.
@@ -565,21 +568,28 @@ class Gif_LZW(object):
                 if code == end_of_information_code:
                     return 0
                 K_code = code
+            # If it's referencing a new code.
             else:
                 K_code = prev_code
 
+            # If the code table can still grow.
             if not table_immutable:
-                code_table[next_code_index] = code_table[prev_code] + bytes([code_table[K_code][0]])
+                # This is what the gif LZW algorithm does to add entries to the code table.
+                # K_code depends on the above if/else block.
+                code_table[next_code_index] = code_table[prev_code] + bytes((code_table[K_code][0],))
                 next_code_index += 1
+                # If the code index is crossing the next threshold (2**x).
                 if next_code_index == self.next_code_table_grow:
                     if self.code_size == self.maximum_bit_size:
-                        # Gifs aren't allowed to grow beyond this hard limit per code
+                        # Gifs aren't allowed to grow beyond this hard limit per code.
                         table_immutable = True
                     else:
                         self.set_code_size(self.code_size + 1)
-
+            # Add to the stream.
             self.stream += code_table[code]
+            # Set the previous code for the next loop.
             prev_code = code
+        return 0
 
     def reset_code_table(self):
         self.code_table[:] = self.default_code_table
