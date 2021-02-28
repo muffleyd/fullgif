@@ -242,6 +242,8 @@ class Gif(object):
                     self.parse_comment_block()
                 else:
                     raise GIFError('Unknown \\x21/33 block label %s' % label)
+            elif separator == 0:  # Invalid, but probably a dangling terminator.
+                continue
             else:
                 raise GIFError('Unknown separator label %s' % separator)
 
