@@ -118,8 +118,11 @@ class Gif_Image(object):
             self.deinterlace()
         self.image = pygame.image.frombuffer(self.decompressed_data, (self.width, self.height), 'P')
         if self.transparent_color_index is not None:
-            # We're using colorkey transparency, so if the transparent color appears elsewhere in the color table
-            #  it could mean the color appears in other pixels.  Find an unused color value.
+            # In gifs transparent_color_index is beyond the end of the color table, so clamp it to the end.
+            if self.transparent_color_index >= len(self.color_table):
+                self.transparent_color_index = len(self.color_table) - 1
+            # Gifs use palettes but we're using pygame colorkey for transparency,
+            #  so we need to find an unused color value to apply to the surface.
             if self.color_table.count(self.color_table[self.transparent_color_index]) > 1:
                 for b in range(256):
                     transparent = bytes((0, 0, b))
