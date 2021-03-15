@@ -550,6 +550,7 @@ class Gif_LZW(object):
         code_table = self.code_table
         clear_code = self.clear_code
         end_of_information_code = self.end_of_information_code
+        stream = self.stream
         # The code table is only allowed to grow to a specific size.
         table_immutable = False
         prev_code = clear_code
@@ -563,7 +564,7 @@ class Gif_LZW(object):
             if prev_code == end_of_information_code:
                 return 0
         # The first code must be in the initial code table.
-        self.stream += code_table[prev_code]
+        stream += code_table[prev_code]
         for code in get_next_code:
             # If it's going to reference an existing code.
             if code < next_code_index:
@@ -593,7 +594,7 @@ class Gif_LZW(object):
                     else:
                         self.set_code_size(self.code_size + 1)
             # Add to the stream.
-            self.stream += code_table[code]
+            stream += code_table[code]
             # Set the previous code for the next loop.
             prev_code = code
         return 0
