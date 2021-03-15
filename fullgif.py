@@ -537,8 +537,8 @@ class Gif_LZW(object):
         get_next_code = self._get_next_code()
         while 1:
             response = self._parse_stream_data(get_next_code)
-            # Fake tail recursion by returning 1.
-            if response == 1:
+            # Fake tail recursion by returning end_of_information_code.
+            if response == self.end_of_information_code:
                 continue
             else:
                 break
@@ -560,9 +560,9 @@ class Gif_LZW(object):
             try:
                 prev_code = next(get_next_code)
             except StopIteration:
-                return 0
+                return
             if prev_code == end_of_information_code:
-                return 0
+                return
         # The first code must be in the initial code table.
         stream += code_table[prev_code]
         for code in get_next_code:
@@ -572,9 +572,9 @@ class Gif_LZW(object):
                 if code == clear_code:
                     self.reset_code_table()
                     # No tail recursion, so here we are. Wipe out prev_code like this.
-                    return 1
+                    return self.end_of_information_code
                 if code == end_of_information_code:
-                    return 0
+                    return
                 K_code = code
             # If it's referencing a new code.
             else:
