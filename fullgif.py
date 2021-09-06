@@ -384,47 +384,6 @@ class Gif(object):
             self.tell += comment_length
 
 
-def main(f=None):
-    if f or len(sys.argv) > 1:
-        g = Gif(f or sys.argv[1])
-    try:
-        ind = sys.argv.index('-f')
-    except ValueError:
-        try:
-            ind = sys.argv.index('-d')
-        except ValueError:
-            pass
-        else:
-            if sys.argv[ind + 1] == '?':
-                delay = input('delay (3): ') or 3
-                delay = int(delay)
-            else:
-                delay = int(sys.argv[ind + 1])
-            g.set_delays(delay)
-    else:
-        doFPS = True
-        if sys.argv[ind + 1] == '?':
-            print('current fps: ', (100 * len(g.framevals) / sum(g.framevals)))
-            fps = float(input('fps (30): ') or 30)
-            if fps < 0:
-                doFPS = False
-                fps = -fps
-        else:
-            fps = float(sys.argv[ind + 1])
-        if doFPS:
-            g.set_fps(fps)
-        else:
-            g.set_delays(fps)
-    for i in sys.argv[2:]:
-        if '-O=' in i:  # force best, it's 2:25am fu
-            from dmgen import opt_gif
-            if VERBOSE:
-                print('optimizing . . .')
-            opt_gif.main(sys.argv[1])
-            break
-    return g
-
-
 class Gif_LZW(object):
     # If the code table has reached the 2**12 limit, the code table may not be added to
     maximum_bit_size = 12
