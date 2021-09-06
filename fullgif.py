@@ -50,7 +50,7 @@ class Gif_Image(object):
         self.y = None
         self.width = None
         self.height = None
-        self.data = None
+        self.lzw_data = None
         self.decompressed_data = None
         self.interlaced = None
         self.color_table = None
@@ -70,11 +70,11 @@ class Gif_Image(object):
 
     def set_decompressed_data(self, data):
         self.decompressed_data = data
-        self.data = None
+        self.lzw_data = None
 
     def decompress_data(self):
-        if not self.decompressed_data and self.data:
-            self.set_decompressed_data(self.data.parse_stream_data())
+        if not self.decompressed_data and self.lzw_data:
+            self.set_decompressed_data(self.lzw_data.parse_stream_data())
 
     def deinterlace(self):
         # The rows of an Interlaced image are arranged in the following order:
@@ -288,7 +288,7 @@ class Gif(object):
         # TODO See if there's a usual way to handle this.
         if self.current_image.transparent_color_index is not None and self.current_image.transparent_color_index > len(self.current_image.color_table):
             self.current_image.transparent_color_index = None
-        self.current_image.data = self.parse_image_data()
+        self.current_image.lzw_data = self.parse_image_data()
         if self.decompress:
             self.current_image.decompress_data()
         # TODO parse the data, convert to x/y lines, handle image dims / xy position,
@@ -313,10 +313,6 @@ class Gif(object):
         # Re-assign to self.tell and add 1 from the length check that was just done.
         self.tell = tell + 1
         return Gif_LZW(minimum_lzw_code_size, lzw_data)
-
-    def parse_stream_data(self, minimum_lzw_code_size, data):
-        g = Gif_LZW(minimum_lzw_code_size, data)
-        return g.parse_stream_data()
 
     def parse_graphics_control_block(self):
         block_size = self.data[self.tell]
