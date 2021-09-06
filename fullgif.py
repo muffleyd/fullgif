@@ -563,6 +563,8 @@ def display_gif(gif, fitto=(1000, 1000), loop=True):
     base_s = pygame.Surface(gif.dims)
     display_dims = fit_to(gif.dims, fitto)
     s = pygame.display.set_mode(display_dims)
+    if gif.filename:
+        pygame.display.set_caption(gif.filename)
     s_rect = s.get_rect()
     if gif.background_color_index:
         base_s.fill(gif.global_color_table[gif.background_color_index])
