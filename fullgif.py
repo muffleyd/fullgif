@@ -24,16 +24,6 @@ def ord16(letters):
     return letters[0] + letters[1] * 256
 
 
-def check_fpsval(value):
-    return value
-
-
-def check_delayval(value):
-    if value > 65535:
-        return 65535
-    return value
-
-
 class Gif_Image(object):
     def __init__(self):
         self.comments = []
@@ -609,3 +599,4 @@ def atomic_decompress(q_get, q_put):
         index, gif_img = data
         gif_img.decompress_data()
         q_put.put((index, gif_img.decompressed_data))
+
