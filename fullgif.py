@@ -1,7 +1,6 @@
 import sys
 import time
 import pygame
-from dmgen.gen import stritem_replace
 
 pygame.display.init()
 
@@ -383,74 +382,6 @@ class Gif(object):
                 break
             self.current_image.comments.append(self.data[self.tell:self.tell + comment_length])
             self.tell += comment_length
-
-    def get_delays(self):
-        for i in self.frames:
-            print(ord16(self.data[i:i + 2]), end=' ')
-
-    def frame_delays(self):
-        data = self.data
-        self.frames = []
-        self.framevals = []
-        for i in range(len(data)):
-            # 0, \x00: end previous block
-            # 1-3, \x21\xf9\x04: Graphic Control Extension
-            # 4, next is transparency data
-            # 5-6, next 2 are frame timing data
-            # 7, next is something
-            # 8, next is \x00: end block
-            # 9, start of next block
-            # now once every 2**47 bits this will be a false positive.
-            # what to do about it
-            if (data[i:i + 4] == '\x00\x21\xf9\x04' and data[i + 8] == '\x00'
-                    and data[i + 9] in ('\x21', '\x2c')):
-                # print i+5,
-                # assert data[i+9] == '\x2c' #new image block after descriptor!
-                self.frames.append(i + 5)
-                self.framevals.append(ord16(data[i + 5:i + 7]))
-        print()
-
-    def set_fps(self, value):
-        if VERBOSE:
-            print('setting FPS to', value)
-        value = check_fpsval(value)
-        values = dict()
-        value = float(value)
-        last = 0
-        for ind, i in enumerate(self.frames):
-            frame = int(round((ind + 1) / value * 100)) - last
-            last += frame
-            values.setdefault(frame, [])
-            values[frame].append(i)
-        for i in values:
-            self.set_delays(i, values[i], False)
-        print('fps set to %d' % value)
-        self.save()
-
-    def set_delays(self, value, indexs=None, save=True):
-        if VERBOSE:
-            print('setting delay to', value)
-        value = check_delayval(value)
-        if indexs is None:
-            if VERBOSE:
-                print('for all indexs')
-            indexs = self.frames
-        elif not hasattr(indexs, '__iter__'):
-            if VERBOSE:
-                print('for index(s)', indexs)
-            indexs = [indexs]
-        else:
-            if VERBOSE:
-                print('for indexs', indexs)
-        for i in indexs:
-            self.data = stritem_replace(self.data, i, chr16(value), 2)
-        if save:
-            self.save()
-
-    def save(self):
-        if VERBOSE:
-            print('saving', self)
-        open(self.filename, 'wb').write(self.data)
 
 
 def main(f=None):
