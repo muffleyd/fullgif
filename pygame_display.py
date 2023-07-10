@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
 import pygame
-from fullgif import fit_to
+from fullgif.gif import fit_to
 
 
 class Pygame_Gif:
     def __init__(self, Gif):
         self.gif = Gif
         self.images = [Pygame_Gif_Image(image) for image in Gif.images]
-    
+
 
 class Pygame_Gif_Image:
     def __init__(self, Gif_Image):
         self.image = None
         self.rect = None
         self.gif_image = Gif_Image
-    
+
     def make_pygame_surface(self):
         if self.image:
             return
