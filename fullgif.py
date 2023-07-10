@@ -1,8 +1,5 @@
 import sys
 import time
-import pygame
-
-pygame.display.init()
 
 VERBOSE = False
 USABLE = True
@@ -33,8 +30,6 @@ class Gif_Image(object):
         self.frame_delay = DEFAULT_FRAME_DELAY
         self.transparent_color_index = None
         self.image_block = None
-        self.image = None
-        self.rect = None
         self.x = None
         self.y = None
         self.width = None
@@ -65,6 +60,25 @@ class Gif_Image(object):
         if not self.decompressed_data and self.lzw_data:
             self.set_decompressed_data(self.lzw_data.parse_stream_data())
 
+    def process_data(self):
+        '''Set additional data after decompressing.'''
+        # If the data is too short, append transparent color indexes, or default to 0, until it's the right length.
+        if len(self.decompressed_data) < self.width * self.height:
+            if self.transparent_color_index is None:
+                color_index = 0
+            else:
+                color_index = self.transparent_color_index
+            self.decompressed_data += bytes(
+                [color_index] * (self.width * self.height - len(self.decompressed_data))
+            )
+        # Deinterlace if needed.
+        if self.interlaced:
+            self.deinterlace()
+        # In some gifs transparent_color_index is beyond the end of the color table, so clamp it to the end.
+        if self.transparent_color_index is not None:
+            if self.transparent_color_index >= len(self.color_table):
+                self.transparent_color_index = len(self.color_table) - 1
+
     def deinterlace(self):
         # The rows of an Interlaced image are arranged in the following order:
         #       Group 1 : Every 8th row, starting with row 0.
@@ -89,46 +103,6 @@ class Gif_Image(object):
         new_data[new_row * self.width:new_row * self.width + self.width] = \
             self.decompressed_data[original_row * self.width:original_row * self.width + self.width]
 
-    def make_pygame_surface(self):
-        if self.image:
-            return
-        if not self.decompressed_data:
-            self.decompress_data()
-        # If the data is too short, append transparent color indexes, or default to 0, until it's the right length.
-        if len(self.decompressed_data) < self.width * self.height:
-            if self.transparent_color_index is None:
-                color_index = 0
-            else:
-                color_index = self.transparent_color_index
-            self.decompressed_data += bytes(
-                [color_index] * (self.width * self.height - len(self.decompressed_data))
-            )
-        if self.interlaced:
-            self.deinterlace()
-        self.image = pygame.image.frombuffer(self.decompressed_data, (self.width, self.height), 'P')
-        if self.transparent_color_index is not None:
-            # In gifs transparent_color_index is beyond the end of the color table, so clamp it to the end.
-            if self.transparent_color_index >= len(self.color_table):
-                self.transparent_color_index = len(self.color_table) - 1
-            # Gifs use palettes but we're using pygame colorkey for transparency,
-            #  so we need to find an unused color value to apply to the surface.
-            if self.color_table.count(self.color_table[self.transparent_color_index]) > 1:
-                for b in range(256):
-                    transparent = bytes((0, 0, b))
-                    if not self.color_table.count(transparent):
-                        break
-                else:
-                    # Only 256 possible values in the color table, so if we're here then this one can't exist in it.
-                    transparent = bytes((0, 1, 0))
-                # The color table could be the same object as the global color table, so make a copy.
-                self.color_table = self.color_table[:]
-                self.color_table[self.transparent_color_index] = transparent
-        self.image.set_palette(self.color_table)
-        self.image = self.image.convert(24)
-        if self.transparent_color_index is not None:
-            self.image.set_colorkey(self.color_table[self.transparent_color_index])
-        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
-
 
 # Counting bits starting at 0
 class Gif(object):
@@ -137,12 +111,11 @@ class Gif(object):
     GIF87a = b'GIF87a'
     GIF89a = b'GIF89a'
 
-    def __init__(self, filename, decompress=False, make_surfaces=False, data=None):
+    def __init__(self, filename, decompress=False, data=None):
         if VERBOSE:
             print('loading', filename)
             start_time = time.time()
         self.decompress = decompress
-        self.make_surfaces = make_surfaces
         self.images = []
         self.filename = filename
         if not data:
@@ -280,10 +253,6 @@ class Gif(object):
         self.current_image.lzw_data = self.parse_image_data()
         if self.decompress:
             self.current_image.decompress_data()
-        # TODO parse the data, convert to x/y lines, handle image dims / xy position,
-        #  animation and overwriting/transparency
-        if self.make_surfaces:
-            self.current_image.make_pygame_surface()
 
     def parse_image_data(self):
         # Make these local due to the tight loops.
@@ -505,48 +474,6 @@ def fit_to(start_dims, dims=(1920, 1080)):
         w2 = width * h
         h2 = dims[1]
     return (int(float(w2)), int(float(h2)))
-
-
-def display_gif(gif, fitto=(1000, 1000), loop=True):
-    pygame.display.init()
-    base_s = pygame.Surface(gif.dims)
-    display_dims = fit_to(gif.dims, fitto)
-    s = pygame.display.set_mode(display_dims)
-    if gif.filename:
-        pygame.display.set_caption(gif.filename)
-    s_rect = s.get_rect()
-    if gif.background_color_index:
-        base_s.fill(gif.global_color_table[gif.background_color_index])
-        pygame.display.flip()
-    c = pygame.time.Clock()
-    while 1:
-        frame_delay = 0
-        for i in gif.images:
-            if not i.image:
-                i.make_pygame_surface()
-            if pygame.event.get(pygame.QUIT):
-                break
-            base_s.blit(i.image, i.rect)
-            s.blit(pygame.transform.smoothscale(base_s, display_dims), s_rect)
-            if frame_delay:
-                c.tick(100. / frame_delay)
-            pygame.display.flip()
-            frame_delay = i.frame_delay
-        else:
-            if loop:
-                if frame_delay:
-                    c.tick(100. / frame_delay)
-                continue
-        break
-    pygame.display.quit()
-
-
-def explode_gif(gif, output_folder):
-    import os
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
-    for ind, i in enumerate(gif.images):
-        pygame.image.save(i.image, os.path.join(output_folder, '%d.png' % (ind + 1)))
 
 
 # Threaded decompression, doesn't speed up with the python implementation of LZW.
