@@ -502,14 +502,20 @@ def decompress_gif_mp(g):
     except ImportError:
         gen = None
         import contextlib
+    import math
     import multiprocessing as mp
     q_put = mp.Queue()
     q_get = mp.Queue()
     args = (q_put, q_get)
+    cores_by_cpu = max(1, mp.cpu_count())
+    # Halve the processes for image frames since there's process startup costs.
+    # When this is shifted to a processor pool instead of a one-off for a gif, drop that.
+    cores_by_gif = min(cores_by_cpu, math.ceil(len(g.images) / 2))
+    print(cores_by_cpu, len(g.images), cores_by_gif)
     processes = []
     with gen and gen.timer() or contextlib.nullcontext():
         # Start the processes.
-        for i in range(max(1, cores.CORES)):
+        for _ in range(cores_by_gif):
             p = mp.Process(target=atomic_decompress, args=args)
             p.daemon = True
             p.start()
