@@ -497,13 +497,17 @@ def decompress_gif(g):
 
 # Multiprocessed decompression, does speed up with the python implementation of LZW.
 def decompress_gif_mp(g):
-    from dmgen import gen, cores
+    try:
+        from dmgen import gen
+    except ImportError:
+        gen = None
+        import contextlib
     import multiprocessing as mp
     q_put = mp.Queue()
     q_get = mp.Queue()
     args = (q_put, q_get)
     processes = []
-    with gen.timer():
+    with gen and gen.timer() or contextlib.nullcontext():
         # Start the processes.
         for i in range(max(1, cores.CORES)):
             p = mp.Process(target=atomic_decompress, args=args)
