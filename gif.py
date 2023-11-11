@@ -5,6 +5,7 @@ VERBOSE = False
 USABLE = True
 ENFORCE_VERSION = False
 COERCE_DISPOSAL_METHOD = True
+FIX_OUT_OF_BOUNDS_TRANSPARENT_INDEX = True
 
 # If the gif provides 0 as a frame delay, use this instead
 DEFAULT_FRAME_DELAY = 10
@@ -74,10 +75,15 @@ class Gif_Image(object):
         # Deinterlace if needed.
         if self.interlaced:
             self.deinterlace()
-        # In some gifs transparent_color_index is beyond the end of the color table, so clamp it to the end.
-        if self.transparent_color_index is not None:
-            if self.transparent_color_index >= len(self.color_table):
-                self.transparent_color_index = len(self.color_table) - 1
+        # In some gifs transparent_color_index is beyond the end of the color table, so copy the first element into that position.
+        if FIX_OUT_OF_BOUNDS_TRANSPARENT_INDEX and self.transparent_color_index is not None and self.transparent_color_index >= len(self.color_table):
+            self.fix_out_of_bounds_transparent_index()
+
+    def fix_out_of_bounds_transparent_index(self):
+        # Create a copy in case it's identical to the global color table.
+        self.color_table = self.color_table[:] + ([self.color_table[0]] * (self.transparent_color_index + 1 - len(self.color_table)))
+        while self.transparent_color_index >= len(self.color_table):
+            self.color_table.append(self.color_table[0])
 
     def deinterlace(self):
         # The rows of an Interlaced image are arranged in the following order:
@@ -302,6 +308,8 @@ class Gif(object):
         self.tell += 2
         if has_transparent_color_index:
             self.current_image.transparent_color_index = self.data[self.tell]
+            if self.current_image.transparent_color_index > 255:
+                raise GIFError(f'Invalid transparent color index, must be 0 <= value <= 255, got {self.transparent_color_index}')
         else:
             self.current_image.transparent_color_index = None
         self.tell += 1
