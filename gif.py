@@ -1,4 +1,3 @@
-import sys
 import time
 
 VERBOSE = False
@@ -524,10 +523,10 @@ def decompress_gif_mp(g):
         for index, data in enumerate(g.images):
             q_put.put((index, data))
         # Put the data to end the processes.
-        for i in range(len(processes)):
+        for _ in processes:
             q_put.put(0)
         # Get the data and set on the objects.
-        for i in g.images:
+        for _ in g.images:
             index, data = q_get.get()
             g.images[index].set_decompressed_data(data)
 
@@ -544,4 +543,3 @@ def atomic_decompress(q_get, q_put):
         index, gif_img = data
         gif_img.decompress_data()
         q_put.put((index, gif_img.decompressed_data))
-
